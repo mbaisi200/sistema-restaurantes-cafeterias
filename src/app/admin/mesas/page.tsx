@@ -38,6 +38,7 @@ import {
   Loader2,
   Edit,
   Trash2,
+  Unlock,
 } from 'lucide-react';
 
 type StatusMesa = 'livre' | 'ocupada' | 'reservada' | 'manutencao';
@@ -126,6 +127,16 @@ export default function MesasPage() {
     } catch (error) {
       console.error('Erro ao excluir mesa:', error);
       toast({ variant: 'destructive', title: 'Erro ao excluir mesa' });
+    }
+  };
+
+  const handleLiberarMesa = async (mesa: Mesa) => {
+    try {
+      await atualizarMesa(mesa.id, { status: 'livre' });
+      toast({ title: `Mesa ${mesa.numero} liberada!` });
+    } catch (error) {
+      console.error('Erro ao liberar mesa:', error);
+      toast({ variant: 'destructive', title: 'Erro ao liberar mesa' });
     }
   };
 
@@ -343,11 +354,23 @@ export default function MesasPage() {
                       
                       {/* Botões de Ação */}
                       <div className="flex gap-2 mt-4">
+                        {mesa.status !== 'livre' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleLiberarMesa(mesa)}
+                            className="border-green-300 text-green-600 hover:bg-green-50"
+                            title="Liberar mesa"
+                          >
+                            <Unlock className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleEditar(mesa)}
                           className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                          title="Editar mesa"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -356,6 +379,7 @@ export default function MesasPage() {
                           variant="outline"
                           onClick={() => setExcluindoMesa(mesa)}
                           className="border-red-300 text-red-600 hover:bg-red-50"
+                          title="Excluir mesa"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
