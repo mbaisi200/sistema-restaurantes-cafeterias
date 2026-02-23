@@ -668,3 +668,295 @@ export async function registrarLog(dados: {
     dataHora: Timestamp.now(),
   });
 }
+
+// Hook para gerenciar Caixa
+export function useCaixa() {
+  const [caixaAberto, setCaixaAberto] = useState<any | null>(null);
+  const [movimentacoes, setMovimentacoes] = useState<any[]>([]);
+  const [historico, setHistorico] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  // Carregar caixa atual e movimentações
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setCaixaAberto(null);
+        setMovimentacoes([]);
+        setHistorico([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Buscar caixa aberto
+    const qCaixa = query(
+      collection(dbInstance, 'caixas'),
+      where('empresaId', '==', empresaId),
+      where('status', '==', 'aberto')
+    );
+
+    const unsubCaixa = onSnapshot(qCaixa, (snapshot) => {
+      if (!snapshot.empty) {
+        const caixa = {
+          id: snapshot.docs[0].id,
+          ...snapshot.docs[0].data(),
+          abertoEm: snapshot.docs[0].data().abertoEm?.toDate(),
+          fechadoEm: snapshot.docs[0].data().fechadoEm?.toDate(),
+        };
+        setCaixaAberto(caixa);
+
+        // Carregar movimentações deste caixa
+        const qMov = query(
+          collection(dbInstance, 'movimentacoes_caixa'),
+          where('caixaId', '==', caixa.id)
+        );
+
+        const unsubMov = onSnapshot(qMov, (movSnapshot) => {
+          const movs = movSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            criadoEm: doc.data().criadoEm?.toDate(),
+          }));
+          setMovimentacoes(movs.sort((a, b) => {
+            if (!a.criadoEm) return 1;
+            if (!b.criadoEm) return -1;
+            return b.criadoEm.getTime() - a.criadoEm.getTime();
+          }));
+        });
+
+        return unsubMov;
+      } else {
+        setCaixaAberto(null);
+        setMovimentacoes([]);
+      }
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar caixa:', error);
+      setLoading(false);
+    });
+
+    // Carregar histórico de caixas (últimos 30 dias)
+    const trintaDiasAtras = new Date();
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+    
+    const qHistorico = query(
+      collection(dbInstance, 'caixas'),
+      where('empresaId', '==', empresaId),
+      where('status', '==', 'fechado')
+    );
+
+    const unsubHistorico = onSnapshot(qHistorico, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        abertoEm: doc.data().abertoEm?.toDate(),
+        fechadoEm: doc.data().fechadoEm?.toDate(),
+      }));
+      setHistorico(data.sort((a, b) => {
+        if (!a.fechadoEm) return 1;
+        if (!b.fechadoEm) return -1;
+        return b.fechadoEm.getTime() - a.fechadoEm.getTime();
+      }).slice(0, 30));
+    });
+
+    return () => {
+      unsubCaixa();
+      unsubHistorico();
+    };
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  // Abrir caixa
+  const abrirCaixa = async (valorInicial: number, observacao?: string) => {
+    const dbInstance = db();
+    if (!empresaId || !user) throw new Error('Usuário não autenticado');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    if (caixaAberto) {
+      throw new Error('Já existe um caixa aberto');
+    }
+
+    const caixa = {
+      empresaId,
+      valorInicial,
+      valorAtual: valorInicial,
+      totalEntradas: 0,
+      totalSaidas: 0,
+      totalVendas: 0,
+      status: 'aberto',
+      abertoPor: user.id,
+      abertoPorNome: user.nome,
+      abertoEm: Timestamp.now(),
+      observacaoAbertura: observacao || '',
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'caixas'), caixa);
+    
+    // Registrar movimentação inicial
+    await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+      caixaId: docRef.id,
+      empresaId,
+      tipo: 'abertura',
+      valor: valorInicial,
+      descricao: 'Abertura de caixa',
+      formaPagamento: 'dinheiro',
+      usuarioId: user.id,
+      usuarioNome: user.nome,
+      criadoEm: Timestamp.now(),
+    });
+
+    return docRef.id;
+  };
+
+  // Registrar venda no caixa
+  const registrarVenda = async (valor: number, formaPagamento: string, vendaId: string) => {
+    const dbInstance = db();
+    if (!caixaAberto || !user) throw new Error('Nenhum caixa aberto');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    // Adicionar movimentação
+    await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+      caixaId: caixaAberto.id,
+      empresaId,
+      tipo: 'venda',
+      valor,
+      formaPagamento,
+      vendaId,
+      descricao: `Venda - ${formaPagamento}`,
+      usuarioId: user.id,
+      usuarioNome: user.nome,
+      criadoEm: Timestamp.now(),
+    });
+
+    // Atualizar totais do caixa
+    await updateDoc(doc(dbInstance, 'caixas', caixaAberto.id), {
+      valorAtual: (caixaAberto.valorAtual || 0) + valor,
+      totalVendas: (caixaAberto.totalVendas || 0) + valor,
+      totalEntradas: (caixaAberto.totalEntradas || 0) + valor,
+    });
+  };
+
+  // Adicionar reforço (entrada manual)
+  const adicionarReforco = async (valor: number, descricao: string, formaPagamento: string) => {
+    const dbInstance = db();
+    if (!caixaAberto || !user) throw new Error('Nenhum caixa aberto');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+      caixaId: caixaAberto.id,
+      empresaId,
+      tipo: 'reforco',
+      valor,
+      formaPagamento,
+      descricao: `Reforço: ${descricao}`,
+      usuarioId: user.id,
+      usuarioNome: user.nome,
+      criadoEm: Timestamp.now(),
+    });
+
+    await updateDoc(doc(dbInstance, 'caixas', caixaAberto.id), {
+      valorAtual: (caixaAberto.valorAtual || 0) + valor,
+      totalEntradas: (caixaAberto.totalEntradas || 0) + valor,
+    });
+  };
+
+  // Adicionar sangria (retirada)
+  const adicionarSangria = async (valor: number, descricao: string) => {
+    const dbInstance = db();
+    if (!caixaAberto || !user) throw new Error('Nenhum caixa aberto');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    if (valor > (caixaAberto.valorAtual || 0)) {
+      throw new Error('Valor maior que o disponível no caixa');
+    }
+
+    await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+      caixaId: caixaAberto.id,
+      empresaId,
+      tipo: 'sangria',
+      valor,
+      formaPagamento: 'dinheiro',
+      descricao: `Sangria: ${descricao}`,
+      usuarioId: user.id,
+      usuarioNome: user.nome,
+      criadoEm: Timestamp.now(),
+    });
+
+    await updateDoc(doc(dbInstance, 'caixas', caixaAberto.id), {
+      valorAtual: (caixaAberto.valorAtual || 0) - valor,
+      totalSaidas: (caixaAberto.totalSaidas || 0) + valor,
+    });
+  };
+
+  // Fechar caixa
+  const fecharCaixa = async (valorFinal: number, observacao?: string) => {
+    const dbInstance = db();
+    if (!caixaAberto || !user) throw new Error('Nenhum caixa aberto');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    const quebra = valorFinal - (caixaAberto.valorAtual || 0);
+
+    // Registrar fechamento
+    await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+      caixaId: caixaAberto.id,
+      empresaId,
+      tipo: 'fechamento',
+      valor: valorFinal,
+      formaPagamento: 'dinheiro',
+      descricao: `Fechamento de caixa${observacao ? ` - ${observacao}` : ''}`,
+      quebra,
+      usuarioId: user.id,
+      usuarioNome: user.nome,
+      criadoEm: Timestamp.now(),
+    });
+
+    // Atualizar caixa
+    await updateDoc(doc(dbInstance, 'caixas', caixaAberto.id), {
+      status: 'fechado',
+      valorFinal,
+      quebra,
+      fechadoPor: user.id,
+      fechadoPorNome: user.nome,
+      fechadoEm: Timestamp.now(),
+      observacaoFechamento: observacao || '',
+    });
+  };
+
+  // Resumo do caixa
+  const resumo = {
+    valorInicial: caixaAberto?.valorInicial || 0,
+    valorAtual: caixaAberto?.valorAtual || 0,
+    totalEntradas: caixaAberto?.totalEntradas || 0,
+    totalSaidas: caixaAberto?.totalSaidas || 0,
+    totalVendas: caixaAberto?.totalVendas || 0,
+    vendasDinheiro: movimentacoes.filter(m => m.tipo === 'venda' && m.formaPagamento === 'dinheiro').reduce((acc, m) => acc + (m.valor || 0), 0),
+    vendasCredito: movimentacoes.filter(m => m.tipo === 'venda' && m.formaPagamento === 'credito').reduce((acc, m) => acc + (m.valor || 0), 0),
+    vendasDebito: movimentacoes.filter(m => m.tipo === 'venda' && m.formaPagamento === 'debito').reduce((acc, m) => acc + (m.valor || 0), 0),
+    vendasPix: movimentacoes.filter(m => m.tipo === 'venda' && m.formaPagamento === 'pix').reduce((acc, m) => acc + (m.valor || 0), 0),
+    reforcos: movimentacoes.filter(m => m.tipo === 'reforco').reduce((acc, m) => acc + (m.valor || 0), 0),
+    sangrias: movimentacoes.filter(m => m.tipo === 'sangria').reduce((acc, m) => acc + (m.valor || 0), 0),
+  };
+
+  return {
+    caixaAberto,
+    movimentacoes,
+    historico,
+    loading,
+    abrirCaixa,
+    registrarVenda,
+    adicionarReforco,
+    adicionarSangria,
+    fecharCaixa,
+    resumo,
+  };
+}

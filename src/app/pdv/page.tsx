@@ -2,7 +2,7 @@
 
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProdutos, useCategorias, useMesas, registrarLog } from '@/hooks/useFirestore';
+import { useProdutos, useCategorias, useMesas, useCaixa, registrarLog } from '@/hooks/useFirestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,6 +76,7 @@ export default function PDVPage() {
   const { produtos, loading: loadingProdutos } = useProdutos();
   const { categorias, loading: loadingCategorias } = useCategorias();
   const { mesas, loading: loadingMesas, atualizarMesa } = useMesas();
+  const { caixaAberto, registrarVenda } = useCaixa();
   
   // Estados
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('todos');
@@ -328,12 +329,18 @@ export default function PDVPage() {
   const finalizarVenda = async (formaPagamento: string) => {
     if (itensPedido.length === 0) return;
     
+    // Verificar se há caixa aberto
+    if (!caixaAberto) {
+      toast({ variant: 'destructive', title: '⚠️ Abra o caixa primeiro!', description: 'Vá em Caixa e abra o caixa para realizar vendas.' });
+      return;
+    }
+    
     setProcessando(true);
     try {
       const dbInstance = db();
       if (!dbInstance) throw new Error('Erro');
 
-      await addDoc(collection(dbInstance, 'vendas'), {
+      const vendaRef = await addDoc(collection(dbInstance, 'vendas'), {
         empresaId,
         itens: itensPedido.map(item => ({
           produtoId: item.produtoId,
@@ -352,8 +359,12 @@ export default function PDVPage() {
         funcionarioId: user?.id,
         funcionarioNome: user?.nome,
         status: 'concluida',
+        caixaId: caixaAberto.id,
         criadoEm: Timestamp.now(),
       });
+
+      // Registrar venda no caixa
+      await registrarVenda(total, formaPagamento, vendaRef.id);
 
       // Limpar pedidos temporários
       if (tipoVenda === 'mesa' || tipoVenda === 'delivery') {
@@ -523,6 +534,18 @@ Data: ${new Date().toLocaleString('pt-BR')}
                 <CheckCircle className="h-4 w-4" />
                 Online
               </div>
+
+              {caixaAberto ? (
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-green-100 text-green-700">
+                  <CheckCircle className="h-4 w-4" />
+                  Caixa Aberto
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-red-100 text-red-700">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                  Caixa Fechado
+                </div>
+              )}
 
               <Badge className="bg-blue-600 text-white px-4 py-2 text-sm">
                 {getTipoVendaLabel()}

@@ -113,5 +113,21 @@ service cloud.firestore {
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated();
     }
+
+    // Collection: caixas - controle de caixa diário
+    match /caixas/{caixaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: movimentacoes_caixa - movimentações de caixa
+    match /movimentacoes_caixa/{movimentacaoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
   }
 }

@@ -33,6 +33,7 @@ import {
   Coffee,
   Settings,
   BarChart3,
+  Wallet,
 } from 'lucide-react';
 
 const masterMenuItems = [
@@ -44,6 +45,8 @@ const masterMenuItems = [
 
 const adminMenuItems = [
   { title: 'Dashboard', url: '/admin/dashboard', icon: LayoutDashboard },
+  { title: 'PDV', url: '/pdv', icon: ShoppingCart },
+  { title: 'Caixa', url: '/admin/caixa', icon: Wallet },
   { title: 'Produtos', url: '/admin/produtos', icon: Package },
   { title: 'Categorias', url: '/admin/categorias', icon: FolderOpen },
   { title: 'Mesas', url: '/admin/mesas', icon: UtensilsCrossed },
@@ -55,6 +58,7 @@ const adminMenuItems = [
 
 const funcionarioMenuItems = [
   { title: 'PDV', url: '/pdv', icon: ShoppingCart },
+  { title: 'Caixa', url: '/admin/caixa', icon: Wallet },
 ];
 
 const roleLabels: Record<string, string> = {
@@ -130,24 +134,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {role === 'admin' && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Acesso Rápido</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild tooltip="PDV">
-                    <Link href="/pdv">
-                      <ShoppingCart className="h-4 w-4" />
-                      <span>Abrir PDV</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
