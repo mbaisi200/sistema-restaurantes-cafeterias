@@ -725,14 +725,15 @@ export function useCaixa() {
             if (!b.criadoEm) return -1;
             return b.criadoEm.getTime() - a.criadoEm.getTime();
           }));
+          setLoading(false);
         });
 
         return unsubMov;
       } else {
         setCaixaAberto(null);
         setMovimentacoes([]);
+        setLoading(false);
       }
-      setLoading(false);
     }, (error) => {
       console.error('Erro ao carregar caixa:', error);
       setLoading(false);
