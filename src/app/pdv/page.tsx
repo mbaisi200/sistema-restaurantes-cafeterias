@@ -406,17 +406,17 @@ export default function PDVPage() {
 
   return (
     <ProtectedRoute allowedRoles={['admin', 'funcionario']}>
-      <div className="h-screen flex flex-col bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+      <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
         
-        {/* HEADER VIBRANTE */}
-        <header className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 px-6 py-3 flex items-center justify-between shrink-0 shadow-lg">
+        {/* HEADER */}
+        <header className="bg-gradient-to-r from-slate-700 to-slate-800 px-6 py-3 flex items-center justify-between shrink-0 shadow-lg">
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-orange-600 font-bold shadow-md">
+            <div className="h-12 w-12 rounded-full bg-white flex items-center justify-center text-slate-700 font-bold shadow-md">
               {user?.nome?.charAt(0)}
             </div>
             <div>
               <p className="font-bold text-white text-lg">{user?.nome}</p>
-              <p className="text-xs text-orange-100">Ponto de Venda</p>
+              <p className="text-xs text-slate-300">Ponto de Venda</p>
             </div>
           </div>
           
@@ -460,12 +460,12 @@ export default function PDVPage() {
         </header>
 
         {/* SELEÇÃO DE TIPO DE VENDA */}
-        <div className="bg-white border-b-2 border-orange-200 px-6 py-3 flex gap-3 items-center shadow-sm">
+        <div className="bg-white border-b-2 border-slate-200 px-6 py-3 flex gap-3 items-center shadow-sm">
           <span className="text-sm font-bold text-gray-700 uppercase">Tipo de Venda:</span>
           <Button
             variant={tipoVenda === 'balcao' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'balcao' ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md' : 'border-2 border-blue-400 text-blue-600 hover:bg-blue-50'}`}
+            className={`font-bold transition-all ${tipoVenda === 'balcao' ? 'bg-slate-600 hover:bg-slate-700 text-white shadow-md' : 'border-2 border-slate-400 text-slate-600 hover:bg-slate-50'}`}
             onClick={() => trocarTipoVenda('balcao')}
           >
             <Package className="h-4 w-4 mr-2" />
@@ -474,7 +474,7 @@ export default function PDVPage() {
           <Button
             variant={tipoVenda === 'mesa' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'mesa' ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-md' : 'border-2 border-purple-400 text-purple-600 hover:bg-purple-50'}`}
+            className={`font-bold transition-all ${tipoVenda === 'mesa' ? 'bg-slate-600 hover:bg-slate-700 text-white shadow-md' : 'border-2 border-slate-400 text-slate-600 hover:bg-slate-50'}`}
             onClick={() => trocarTipoVenda('mesa')}
           >
             <UtensilsCrossed className="h-4 w-4 mr-2" />
@@ -483,7 +483,7 @@ export default function PDVPage() {
           <Button
             variant={tipoVenda === 'delivery' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'delivery' ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md' : 'border-2 border-green-400 text-green-600 hover:bg-green-50'}`}
+            className={`font-bold transition-all ${tipoVenda === 'delivery' ? 'bg-slate-600 hover:bg-slate-700 text-white shadow-md' : 'border-2 border-slate-400 text-slate-600 hover:bg-slate-50'}`}
             onClick={() => trocarTipoVenda('delivery')}
           >
             <Truck className="h-4 w-4 mr-2" />
@@ -496,8 +496,8 @@ export default function PDVPage() {
           
           {/* COLUNA ESQUERDA - MESAS (se selecionado) */}
           {tipoVenda === 'mesa' && (
-            <div className="w-48 bg-white rounded-xl shadow-lg border-2 border-purple-200 flex flex-col overflow-hidden">
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-3 text-white font-bold">
+            <div className="w-48 bg-white rounded-xl shadow-lg border-2 border-slate-200 flex flex-col overflow-hidden">
+              <div className="bg-slate-700 px-4 py-3 text-white font-bold">
                 MESAS
               </div>
               <ScrollArea className="flex-1 p-3">
@@ -508,10 +508,10 @@ export default function PDVPage() {
                       onClick={() => selecionarMesa(mesa.id, mesa.numero, mesa.status)}
                       className={`w-full p-3 rounded-lg font-bold transition-all transform hover:scale-105 ${
                         mesaSelecionada === mesa.id
-                          ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-lg'
+                          ? 'bg-slate-700 text-white shadow-lg'
                           : mesa.status === 'livre'
-                          ? 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 hover:shadow-md'
-                          : 'bg-gradient-to-r from-red-100 to-red-200 text-red-800 hover:shadow-md'
+                          ? 'bg-slate-100 text-slate-800 hover:shadow-md'
+                          : 'bg-slate-200 text-slate-800 hover:shadow-md'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -528,14 +528,14 @@ export default function PDVPage() {
           )}
 
           {/* COLUNA CENTRAL - PRODUTOS */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-xl shadow-lg border-2 border-orange-200">
+          <div className="flex-1 flex flex-col overflow-hidden bg-white rounded-xl shadow-lg border-2 border-slate-200">
             
             {/* CATEGORIAS */}
-            <div className="bg-gradient-to-r from-orange-400 to-amber-400 px-4 py-3 flex gap-2 overflow-x-auto border-b-2 border-orange-200">
+            <div className="bg-slate-600 px-4 py-3 flex gap-2 overflow-x-auto border-b-2 border-slate-700">
               <Button
                 size="sm"
                 variant={categoriaAtiva === 'todos' ? 'default' : 'outline'}
-                className={`font-bold whitespace-nowrap transition-all ${categoriaAtiva === 'todos' ? 'bg-white text-orange-600 shadow-md' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
+                className={`font-bold whitespace-nowrap transition-all ${categoriaAtiva === 'todos' ? 'bg-white text-slate-700 shadow-md' : 'bg-slate-700 text-white hover:bg-slate-800'}`}
                 onClick={() => setCategoriaAtiva('todos')}
               >
                 Todos
@@ -555,14 +555,14 @@ export default function PDVPage() {
             </div>
 
             {/* BUSCA */}
-            <div className="p-4 border-b-2 border-orange-100 bg-gradient-to-r from-orange-50 to-amber-50">
+            <div className="p-4 border-b-2 border-slate-100 bg-slate-50">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-orange-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input
                   placeholder="🔍 Buscar produto..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 border-2 border-orange-200 focus:border-orange-500 rounded-lg font-semibold"
+                  className="pl-10 border-2 border-slate-200 focus:border-slate-500 rounded-lg font-semibold"
                 />
               </div>
             </div>
@@ -582,11 +582,11 @@ export default function PDVPage() {
                     return (
                       <button
                         key={produto.id}
-                        className="group bg-white rounded-xl p-3 hover:shadow-xl active:scale-95 transition-all border-2 border-orange-100 hover:border-orange-300 overflow-hidden relative"
+                        className="group bg-white rounded-xl p-3 hover:shadow-xl active:scale-95 transition-all border-2 border-slate-100 hover:border-slate-300 overflow-hidden relative"
                         onClick={() => adicionarProduto(produto)}
                       >
                         {/* Fundo gradiente no hover */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-amber-50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="absolute inset-0 bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity" />
                         
                         <div className="relative z-10">
                           <div 
@@ -595,7 +595,7 @@ export default function PDVPage() {
                           >
                             <Coffee className="h-7 w-7 transition-transform group-hover:rotate-12" style={{ color: corCategoria }} />
                           </div>
-                          <p className="text-sm font-bold truncate text-gray-800 group-hover:text-orange-600">{produto.nome}</p>
+                          <p className="text-sm font-bold truncate text-gray-800 group-hover:text-slate-700">{produto.nome}</p>
                           <p className="text-base font-extrabold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent mt-1">
                             R$ {(produto.preco || 0).toFixed(2)}
                           </p>
@@ -609,31 +609,31 @@ export default function PDVPage() {
           </div>
 
           {/* COLUNA DIREITA - CARRINHO */}
-          <div className="w-96 bg-white rounded-xl shadow-lg border-2 border-green-200 flex flex-col overflow-hidden">
+          <div className="w-96 bg-white rounded-xl shadow-lg border-2 border-slate-200 flex flex-col overflow-hidden">
             
             {/* HEADER CARRINHO */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-4 text-white">
+            <div className="bg-slate-700 px-4 py-4 text-white">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <ShoppingCart className="h-6 w-6" />
                   PEDIDO
                 </h2>
                 {itensPedido.length > 0 && (
-                  <Badge className="bg-white text-green-600 font-bold text-lg px-3 py-1">
+                  <Badge className="bg-white text-slate-700 font-bold text-lg px-3 py-1">
                     {itensPedido.length}
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-green-100 font-semibold">
+              <p className="text-sm text-slate-300 font-semibold">
                 {getTipoVendaLabel()}
               </p>
               
               {tipoVenda === 'delivery' && itensPedido.length > 0 && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={imprimirComanda}
-                  className="w-full mt-3 border-white text-white hover:bg-white hover:text-green-600 font-bold"
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={imprimirComanda}
+                    className="w-full mt-3 border-white text-white hover:bg-white hover:text-slate-700 font-bold"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimir Comanda
@@ -652,11 +652,11 @@ export default function PDVPage() {
               ) : (
                 <div className="space-y-3">
                   {(itensPedido || []).map((item, index) => (
-                    <div key={item.id} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 border-2 border-green-200 hover:border-green-400 transition-all shadow-sm hover:shadow-md">
+                    <div key={item.id} className="bg-slate-50 rounded-lg p-3 border-2 border-slate-200 hover:border-slate-400 transition-all shadow-sm hover:shadow-md">
                       <div className="flex justify-between items-start mb-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold bg-green-500 text-white px-2 py-1 rounded-full">#{index + 1}</span>
+                            <span className="text-xs font-bold bg-slate-700 text-white px-2 py-1 rounded-full">#{index + 1}</span>
                             <p className="font-bold text-gray-800">{item.nome}</p>
                           </div>
                           <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
@@ -665,7 +665,7 @@ export default function PDVPage() {
                           </p>
                         </div>
                         <button
-                          className="text-red-500 hover:text-red-700 hover:bg-red-100 p-1 rounded transition-all"
+                          className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 p-1 rounded transition-all"
                           onClick={() => removerItem(item.id)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -674,20 +674,20 @@ export default function PDVPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <button
-                            className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center font-bold transition-all shadow-md"
+                            className="w-8 h-8 rounded-lg bg-slate-400 hover:bg-slate-500 text-white flex items-center justify-center font-bold transition-all shadow-md"
                             onClick={() => alterarQtd(item.id, -1, item.quantidade)}
                           >
                             <Minus className="h-4 w-4" />
                           </button>
                           <span className="w-8 text-center font-bold text-lg text-gray-800">{item.quantidade}</span>
                           <button
-                            className="w-8 h-8 rounded-lg bg-green-500 hover:bg-green-600 text-white flex items-center justify-center font-bold transition-all shadow-md"
+                            className="w-8 h-8 rounded-lg bg-slate-600 hover:bg-slate-700 text-white flex items-center justify-center font-bold transition-all shadow-md"
                             onClick={() => alterarQtd(item.id, 1, item.quantidade)}
                           >
                             <Plus className="h-4 w-4" />
                           </button>
                         </div>
-                        <p className="font-bold text-lg bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
+                        <p className="font-bold text-lg text-slate-700">
                           R$ {(item.preco * item.quantidade).toFixed(2)}
                         </p>
                       </div>
@@ -698,16 +698,16 @@ export default function PDVPage() {
             </ScrollArea>
 
             {/* TOTAL E FINALIZAR */}
-            <div className="p-4 border-t-2 border-green-200 space-y-3 bg-gradient-to-b from-white to-green-50">
+            <div className="p-4 border-t-2 border-slate-200 space-y-3 bg-white">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold text-gray-700">TOTAL:</span>
-                <span className="text-3xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">
+                <span className="text-3xl font-extrabold text-slate-800">
                   R$ {total.toFixed(2)}
                 </span>
               </div>
               
               <Button
-                className="w-full h-16 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-16 text-lg font-bold bg-slate-700 hover:bg-slate-800 text-white shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={itensPedido.length === 0 || processando}
                 onClick={() => setDialogPagamento(true)}
               >
@@ -718,7 +718,7 @@ export default function PDVPage() {
               {itensPedido.length > 0 && (
                 <Button
                   variant="outline"
-                  className="w-full border-2 border-red-400 text-red-600 hover:bg-red-50 font-bold"
+                  className="w-full border-2 border-slate-400 text-slate-600 hover:bg-slate-50 font-bold"
                   onClick={limparPedido}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -732,9 +732,9 @@ export default function PDVPage() {
 
       {/* DIALOG DELIVERY */}
       <Dialog open={dialogDelivery} onOpenChange={setDialogDelivery}>
-        <DialogContent className="max-w-lg border-2 border-green-300">
+        <DialogContent className="max-w-lg border-2 border-slate-300">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-green-600">
+            <DialogTitle className="flex items-center gap-2 text-slate-700">
               <Truck className="h-6 w-6" />
               Novo Delivery
             </DialogTitle>
@@ -745,18 +745,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Nome *</Label>
-                <Input 
-                  value={deliveryInfo.nome} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, nome: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.nome} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, nome: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Telefone *</Label>
-                <Input 
-                  value={deliveryInfo.telefone} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, telefone: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.telefone} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, telefone: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
             </div>
@@ -764,18 +764,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1">
                 <Label className="font-bold">Endereço *</Label>
-                <Input 
-                  value={deliveryInfo.endereco} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, endereco: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.endereco} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, endereco: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Número *</Label>
-                <Input 
-                  value={deliveryInfo.numero} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, numero: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.numero} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, numero: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
             </div>
@@ -783,18 +783,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Complemento</Label>
-                <Input 
-                  value={deliveryInfo.complemento} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, complemento: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.complemento} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, complemento: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Bairro *</Label>
-                <Input 
-                  value={deliveryInfo.bairro} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, bairro: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.bairro} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, bairro: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
             </div>
@@ -802,18 +802,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Cidade *</Label>
-                <Input 
-                  value={deliveryInfo.cidade} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, cidade: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.cidade} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, cidade: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">CEP</Label>
-                <Input 
-                  value={deliveryInfo.cep} 
-                  onChange={(e) => setDeliveryInfo({...deliveryInfo, cep: e.target.value})}
-                  className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                  <Input 
+                    value={deliveryInfo.cep} 
+                    onChange={(e) => setDeliveryInfo({...deliveryInfo, cep: e.target.value})}
+                    className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
                 />
               </div>
             </div>
@@ -824,7 +824,7 @@ export default function PDVPage() {
                 value={deliveryInfo.observacao} 
                 onChange={(e) => setDeliveryInfo({...deliveryInfo, observacao: e.target.value})}
                 rows={2}
-                className="border-2 border-green-200 focus:border-green-500 rounded-lg"
+                className="border-2 border-slate-200 focus:border-slate-500 rounded-lg"
               />
             </div>
           </div>
@@ -833,13 +833,13 @@ export default function PDVPage() {
             <Button 
               variant="outline" 
               onClick={() => setDialogDelivery(false)} 
-              className="flex-1 border-2 border-gray-300 hover:bg-gray-100 font-bold"
+              className="flex-1 border-2 border-slate-300 hover:bg-slate-100 font-bold"
             >
               Cancelar
             </Button>
             <Button 
               onClick={iniciarDelivery} 
-              className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-lg"
+              className="flex-1 bg-slate-700 hover:bg-slate-800 text-white font-bold shadow-lg"
             >
               <Truck className="h-4 w-4 mr-2" />
               Iniciar Delivery
@@ -850,22 +850,22 @@ export default function PDVPage() {
 
       {/* DIALOG PAGAMENTO */}
       <Dialog open={dialogPagamento} onOpenChange={setDialogPagamento}>
-        <DialogContent className="max-w-md border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50">
+        <DialogContent className="max-w-md border-2 border-slate-300 bg-white">
           <DialogHeader>
-            <DialogTitle className="text-2xl text-center font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            <DialogTitle className="text-2xl text-center font-bold text-slate-800">
               Forma de Pagamento
             </DialogTitle>
             <DialogDescription className="text-center font-semibold text-gray-700">{getTipoVendaLabel()}</DialogDescription>
           </DialogHeader>
           
-          <div className="text-center py-6 bg-white rounded-xl border-2 border-orange-200 shadow-md">
-            <p className="text-5xl font-extrabold bg-gradient-to-r from-green-500 to-emerald-600 bg-clip-text text-transparent">R$ {total.toFixed(2)}</p>
+          <div className="text-center py-6 bg-slate-50 rounded-xl border-2 border-slate-200 shadow-md">
+            <p className="text-5xl font-extrabold text-slate-800">R$ {total.toFixed(2)}</p>
             <p className="text-sm text-gray-600 mt-2 font-semibold">{itensPedido.length} itens</p>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
             <Button 
-              className="h-24 text-lg font-bold bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transition-all transform hover:scale-105" 
+              className="h-24 text-lg font-bold bg-slate-600 hover:bg-slate-700 text-white shadow-lg transition-all transform hover:scale-105" 
               onClick={() => finalizarVenda('dinheiro')} 
               disabled={processando}
             >
@@ -875,7 +875,7 @@ export default function PDVPage() {
               </div>
             </Button>
             <Button 
-              className="h-24 text-lg font-bold bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg transition-all transform hover:scale-105" 
+              className="h-24 text-lg font-bold bg-slate-600 hover:bg-slate-700 text-white shadow-lg transition-all transform hover:scale-105" 
               onClick={() => finalizarVenda('credito')} 
               disabled={processando}
             >
@@ -885,7 +885,7 @@ export default function PDVPage() {
               </div>
             </Button>
             <Button 
-              className="h-24 text-lg font-bold bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg transition-all transform hover:scale-105" 
+              className="h-24 text-lg font-bold bg-slate-600 hover:bg-slate-700 text-white shadow-lg transition-all transform hover:scale-105" 
               onClick={() => finalizarVenda('debito')} 
               disabled={processando}
             >
@@ -895,7 +895,7 @@ export default function PDVPage() {
               </div>
             </Button>
             <Button 
-              className="h-24 text-lg font-bold bg-gradient-to-br from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-lg transition-all transform hover:scale-105" 
+              className="h-24 text-lg font-bold bg-slate-600 hover:bg-slate-700 text-white shadow-lg transition-all transform hover:scale-105" 
               onClick={() => finalizarVenda('pix')} 
               disabled={processando}
             >
@@ -909,7 +909,7 @@ export default function PDVPage() {
           <Button 
             variant="outline" 
             onClick={() => setDialogPagamento(false)} 
-            className="w-full border-2 border-gray-300 hover:bg-gray-100 font-bold text-gray-700"
+            className="w-full border-2 border-slate-300 hover:bg-slate-100 font-bold text-slate-700"
           >
             Cancelar
           </Button>
