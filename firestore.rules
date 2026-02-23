@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Collection: usuarios
+    match /usuarios/{userId} {
+      // Qualquer usuário autenticado pode ler
+      allow read: if isAuthenticated();
+      
+      // Criação: usuário pode criar seu próprio documento após registro no Auth
+      // ou qualquer usuário autenticado pode criar (o código já valida o empresaId)
+      allow create: if isAuthenticated();
+      
+      // Atualização: próprio usuário ou autenticado
+      allow update: if isAuthenticated();
+      
+      // Delete: apenas se autenticado (lógica no app controla isso)
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: empresas
+    match /empresas/{empresaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: produtos
+    match /produtos/{produtoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: categorias
+    match /categorias/{categoriaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: mesas
+    match /mesas/{mesaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: funcionarios
+    match /funcionarios/{funcionarioId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: vendas
+    match /vendas/{vendaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: contas
+    match /contas/{contaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: logs
+    match /logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: estoque
+    match /estoque/{estoqueId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: pedidos_mesa - lançamentos de produtos nas mesas
+    match /pedidos_mesa/{pedidoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /pedidos_temp/{pedidoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+  }
+}

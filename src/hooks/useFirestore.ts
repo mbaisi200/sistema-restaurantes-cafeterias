@@ -1,0 +1,670 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc,
+  doc,
+  Timestamp 
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+
+// Hook para gerenciar produtos
+export function useProdutos() {
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setProdutos([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'produtos'),
+      where('empresaId', '==', empresaId),
+      where('ativo', '==', true)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setProdutos(data);
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar produtos:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  const adicionarProduto = async (dados: any) => {
+    const dbInstance = db();
+    if (!empresaId) throw new Error('Empresa não definida');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const produto = {
+      ...dados,
+      empresaId,
+      estoqueAtual: dados.estoqueAtual || 0,
+      destaque: dados.destaque || false,
+      ativo: true,
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'produtos'), produto);
+    return docRef.id;
+  };
+
+  const atualizarProduto = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'produtos', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const excluirProduto = async (id: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'produtos', id), {
+      ativo: false,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  return { produtos, loading, adicionarProduto, atualizarProduto, excluirProduto };
+}
+
+// Hook para gerenciar categorias
+export function useCategorias() {
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setCategorias([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'categorias'),
+      where('empresaId', '==', empresaId),
+      where('ativo', '==', true)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setCategorias(data.sort((a, b) => a.ordem - b.ordem));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar categorias:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  const adicionarCategoria = async (dados: any) => {
+    const dbInstance = db();
+    if (!empresaId) throw new Error('Empresa não definida');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const categoria = {
+      ...dados,
+      empresaId,
+      ordem: dados.ordem || categorias.length + 1,
+      ativo: true,
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'categorias'), categoria);
+    return docRef.id;
+  };
+
+  const atualizarCategoria = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'categorias', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const excluirCategoria = async (id: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'categorias', id), {
+      ativo: false,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  return { categorias, loading, adicionarCategoria, atualizarCategoria, excluirCategoria };
+}
+
+// Hook para gerenciar mesas
+export function useMesas() {
+  const [mesas, setMesas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setMesas([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'mesas'),
+      where('empresaId', '==', empresaId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setMesas(data.sort((a, b) => a.numero - b.numero));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar mesas:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  const adicionarMesa = async (dados: any) => {
+    const dbInstance = db();
+    if (!empresaId) throw new Error('Empresa não definida');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const mesa = {
+      ...dados,
+      empresaId,
+      status: 'livre',
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'mesas'), mesa);
+    return docRef.id;
+  };
+
+  const atualizarMesa = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'mesas', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const excluirMesa = async (id: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await deleteDoc(doc(dbInstance, 'mesas', id));
+  };
+
+  return { mesas, loading, adicionarMesa, atualizarMesa, excluirMesa };
+}
+
+// Hook para gerenciar funcionários
+export function useFuncionarios() {
+  const [funcionarios, setFuncionarios] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setFuncionarios([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'funcionarios'),
+      where('empresaId', '==', empresaId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setFuncionarios(data);
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar funcionários:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  const adicionarFuncionario = async (dados: any) => {
+    const dbInstance = db();
+    if (!empresaId) throw new Error('Empresa não definida');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const funcionario = {
+      ...dados,
+      empresaId,
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'funcionarios'), funcionario);
+    return docRef.id;
+  };
+
+  const atualizarFuncionario = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'funcionarios', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const excluirFuncionario = async (id: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await deleteDoc(doc(dbInstance, 'funcionarios', id));
+  };
+
+  return { funcionarios, loading, adicionarFuncionario, atualizarFuncionario, excluirFuncionario };
+}
+
+// Hook para gerenciar vendas
+export function useVendas() {
+  const [vendas, setVendas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setVendas([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'vendas'),
+      where('empresaId', '==', empresaId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setVendas(data.sort((a, b) => b.criadoEm - a.criadoEm));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar vendas:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  return { vendas, loading };
+}
+
+// Hook para empresas (Master)
+export function useEmpresas() {
+  const [empresas, setEmpresas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const dbInstance = db();
+    if (!dbInstance) {
+      return;
+    }
+
+    const q = query(collection(dbInstance, 'empresas'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+        validade: doc.data().validade?.toDate(),
+      }));
+      setEmpresas(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const adicionarEmpresa = async (dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const empresa = {
+      ...dados,
+      status: 'ativo',
+      configuracoes: {
+        moeda: 'BRL',
+        imposto: 0,
+        taxaServico: 10,
+      },
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'empresas'), empresa);
+    return docRef.id;
+  };
+
+  const atualizarEmpresa = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'empresas', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  return { empresas, loading, adicionarEmpresa, atualizarEmpresa };
+}
+
+// Hook para gerenciar contas a pagar e receber
+export function useContas() {
+  const [contas, setContas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setContas([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'contas'),
+      where('empresaId', '==', empresaId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        vencimento: doc.data().vencimento?.toDate(),
+        dataPagamento: doc.data().dataPagamento?.toDate(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setContas(data.sort((a, b) => {
+        if (!a.vencimento) return 1;
+        if (!b.vencimento) return -1;
+        return a.vencimento.getTime() - b.vencimento.getTime();
+      }));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar contas:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  const adicionarConta = async (dados: any) => {
+    const dbInstance = db();
+    if (!empresaId) throw new Error('Empresa não definida');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    const conta = {
+      ...dados,
+      empresaId,
+      status: 'pendente',
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'contas'), conta);
+    return docRef.id;
+  };
+
+  const atualizarConta = async (id: string, dados: any) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'contas', id), {
+      ...dados,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const registrarPagamento = async (id: string, dadosPagamento: { valor: number; formaPagamento: string; observacao?: string }) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await updateDoc(doc(dbInstance, 'contas', id), {
+      status: 'pago',
+      dataPagamento: Timestamp.now(),
+      valorPago: dadosPagamento.valor,
+      formaPagamento: dadosPagamento.formaPagamento,
+      observacaoPagamento: dadosPagamento.observacao,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  const excluirConta = async (id: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+    
+    await deleteDoc(doc(dbInstance, 'contas', id));
+  };
+
+  // Calcular totais
+  const contasPagar = contas.filter(c => c.tipo === 'pagar');
+  const contasReceber = contas.filter(c => c.tipo === 'receber');
+  
+  const totalPagarPendente = contasPagar.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor || 0), 0);
+  const totalReceberPendente = contasReceber.filter(c => c.status === 'pendente').reduce((acc, c) => acc + (c.valor || 0), 0);
+  const totalPago = contasPagar.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valorPago || 0), 0);
+  const totalRecebido = contasReceber.filter(c => c.status === 'pago').reduce((acc, c) => acc + (c.valorPago || 0), 0);
+
+  return { 
+    contas, 
+    loading, 
+    adicionarConta, 
+    atualizarConta, 
+    registrarPagamento, 
+    excluirConta,
+    contasPagar,
+    contasReceber,
+    totalPagarPendente,
+    totalReceberPendente,
+    totalPago,
+    totalRecebido
+  };
+}
+
+// Hook para gerenciar logs
+export function useLogs() {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setLogs([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'logs'),
+      where('empresaId', '==', empresaId)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        dataHora: doc.data().dataHora?.toDate(),
+      }));
+      setLogs(data.sort((a, b) => {
+        if (!a.dataHora) return 1;
+        if (!b.dataHora) return -1;
+        return b.dataHora.getTime() - a.dataHora.getTime();
+      }));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar logs:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  return { logs, loading };
+}
+
+// Função para registrar log
+export async function registrarLog(dados: {
+  empresaId: string;
+  usuarioId: string;
+  usuarioNome: string;
+  acao: string;
+  detalhes?: string;
+  tipo: 'venda' | 'produto' | 'estoque' | 'funcionario' | 'financeiro' | 'outro';
+}) {
+  const dbInstance = db();
+  if (!dbInstance) throw new Error('Firebase não inicializado');
+  
+  await addDoc(collection(dbInstance, 'logs'), {
+    ...dados,
+    dataHora: Timestamp.now(),
+  });
+}
