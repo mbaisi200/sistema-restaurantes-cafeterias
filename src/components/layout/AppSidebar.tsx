@@ -77,7 +77,11 @@ export function AppSidebar() {
   const { user, logout, empresaId, role } = useAuth();
   const pathname = usePathname();
 
+  // Debug log
+  console.log('AppSidebar - role:', role, 'user:', user?.nome);
+
   const getMenuItems = () => {
+    console.log('getMenuItems - role:', role);
     switch (role) {
       case 'master':
         return masterMenuItems;
@@ -86,11 +90,13 @@ export function AppSidebar() {
       case 'funcionario':
         return funcionarioMenuItems;
       default:
+        console.log('Role não reconhecido, retornando array vazio');
         return [];
     }
   };
 
   const menuItems = getMenuItems();
+  console.log('menuItems:', menuItems);
 
   const handleLogout = async () => {
     await logout();
