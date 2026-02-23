@@ -76,7 +76,7 @@ export default function PDVPage() {
   const { produtos, loading: loadingProdutos } = useProdutos();
   const { categorias, loading: loadingCategorias } = useCategorias();
   const { mesas, loading: loadingMesas, atualizarMesa } = useMesas();
-  const { caixaAberto, registrarVenda } = useCaixa();
+  const { caixaAberto, registrarVenda, abrirCaixa,fecharCaixa } = useCaixa();
   
   // Estados
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('todos');
@@ -546,6 +546,24 @@ Data: ${new Date().toLocaleString('pt-BR')}
                   Caixa Fechado
                 </div>
               )}
+
+              {!caixaAberto ? (
+  <Button
+    size="sm"
+    className="bg-green-600 hover:bg-green-700"
+    onClick={() => abrirCaixa(0)}
+  >
+    Abrir Caixa
+  </Button>
+) : (
+  <Button
+    size="sm"
+    variant="destructive"
+    onClick={() => fecharCaixa(caixaAberto.valorAtual || 0)}
+  >
+    Fechar Caixa
+  </Button>
+)}
 
               <Badge className="bg-blue-600 text-white px-4 py-2 text-sm">
                 {getTipoVendaLabel()}
