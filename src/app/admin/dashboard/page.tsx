@@ -111,7 +111,7 @@ export default function AdminDashboardPage() {
                 Bem-vindo, {user?.nome}! Resumo do seu estabelecimento.
               </p>
             </div>
-            <Button asChild>
+            <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white">
               <a href="/pdv">
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 Abrir PDV
@@ -168,20 +168,20 @@ export default function AdminDashboardPage() {
 
           {/* Financial Summary */}
           <div className="grid gap-4 md:grid-cols-3">
-            <Card>
+            <Card className="border-blue-100">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">A Receber</p>
-                    <p className="text-2xl font-bold text-blue-600">
+                    <p className="text-2xl font-bold text-green-600">
                       R$ {totalReceberPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </p>
                   </div>
-                  <DollarSign className="h-8 w-8 text-blue-500 opacity-50" />
+                  <DollarSign className="h-8 w-8 text-green-500 opacity-50" />
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-blue-100">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
                 </div>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-blue-100">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -211,21 +211,21 @@ export default function AdminDashboardPage() {
 
           {/* Alerts */}
           {produtosEstoqueBaixo.length > 0 && (
-            <Card className="border-yellow-200 bg-yellow-50">
+            <Card className="border-orange-200 bg-orange-50">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-yellow-100 flex items-center justify-center">
-                    <AlertTriangle className="h-6 w-6 text-yellow-600" />
+                  <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                    <AlertTriangle className="h-6 w-6 text-orange-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-semibold text-yellow-800">
+                    <p className="font-semibold text-orange-800">
                       Atenção: {produtosEstoqueBaixo.length} produtos com estoque baixo
                     </p>
-                    <p className="text-sm text-yellow-700">
+                    <p className="text-sm text-orange-700">
                       Alguns produtos estão abaixo do estoque mínimo. Verifique o controle de estoque.
                     </p>
                   </div>
-                  <Button variant="outline" className="border-yellow-300 text-yellow-700 hover:bg-yellow-100" asChild>
+                  <Button variant="outline" className="border-orange-300 text-orange-700 hover:bg-orange-100" asChild>
                     <a href="/admin/estoque">Ver Estoque</a>
                   </Button>
                 </div>
@@ -235,7 +235,7 @@ export default function AdminDashboardPage() {
 
           {/* Quick Stats */}
           <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+            <Card className="border-blue-100">
               <CardHeader>
                 <CardTitle>Produtos Cadastrados</CardTitle>
                 <CardDescription>Resumo do cardápio</CardDescription>
@@ -253,7 +253,7 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-blue-100">
               <CardHeader>
                 <CardTitle>Pedidos Recentes</CardTitle>
                 <CardDescription>Últimas vendas</CardDescription>
@@ -273,21 +273,21 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* Week Comparison */}
-          <Card>
+          <Card className="border-blue-100">
             <CardHeader>
               <CardTitle>Comparativo Semanal</CardTitle>
               <CardDescription>Desempenho de vendas comparado com a semana anterior</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="p-4 rounded-lg border bg-gray-50">
+                <div className="p-4 rounded-lg border border-blue-100 bg-blue-50">
                   <p className="text-sm text-muted-foreground">Semana Atual</p>
                   <p className="text-2xl font-bold mt-1">
                     R$ {totalVendasSemanaAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-sm text-muted-foreground">{vendasSemanaAtual.length} vendas</p>
                 </div>
-                <div className="p-4 rounded-lg border">
+                <div className="p-4 rounded-lg border border-blue-100 bg-white">
                   <p className="text-sm text-muted-foreground">Semana Anterior</p>
                   <p className="text-2xl font-bold mt-1">
                     R$ {totalVendasSemanaAnterior.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -296,7 +296,7 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
               {variacaoVendas !== 0 && (
-                <div className={`mt-4 flex items-center gap-2 p-3 rounded-lg ${variacaoVendas > 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                <div className={`mt-4 flex items-center gap-2 p-3 rounded-lg ${variacaoVendas > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                   {variacaoVendas > 0 ? (
                     <TrendingUp className="h-5 w-5" />
                   ) : (

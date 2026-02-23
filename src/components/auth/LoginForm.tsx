@@ -62,10 +62,10 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
-      <CardHeader className="text-center">
+    <Card className="w-full max-w-md shadow-lg border-blue-100">
+      <CardHeader className="text-center bg-blue-50 border-b border-blue-100">
         <div className="flex justify-center mb-4">
-          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+          <div className="h-16 w-16 rounded-2xl bg-blue-600 flex items-center justify-center">
             <Coffee className="h-8 w-8 text-white" />
           </div>
         </div>
@@ -80,7 +80,7 @@ export function LoginForm() {
           <Button
             type="button"
             variant={tab === 'admin' ? 'default' : 'outline'}
-            className={`flex-1 ${tab === 'admin' ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
+            className={`flex-1 ${tab === 'admin' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-300 text-blue-600'}`}
             onClick={() => { setTab('admin'); setError(''); }}
           >
             <Shield className="h-4 w-4 mr-2" />
@@ -89,7 +89,7 @@ export function LoginForm() {
           <Button
             type="button"
             variant={tab === 'funcionario' ? 'default' : 'outline'}
-            className={`flex-1 ${tab === 'funcionario' ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
+            className={`flex-1 ${tab === 'funcionario' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-300 text-blue-600'}`}
             onClick={() => { setTab('funcionario'); setError(''); }}
           >
             <User className="h-4 w-4 mr-2" />
@@ -132,7 +132,7 @@ export function LoginForm() {
               />
             </div>
             
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -147,7 +147,7 @@ export function LoginForm() {
               <Button
                 type="button"
                 variant="link"
-                className="text-sm text-muted-foreground"
+                className="text-sm text-blue-600 hover:text-blue-700"
                 onClick={() => router.push('/recuperar-senha')}
               >
                 Esqueceu sua senha?
@@ -195,7 +195,7 @@ export function LoginForm() {
               </p>
             </div>
             
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

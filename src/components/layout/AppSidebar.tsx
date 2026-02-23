@@ -68,9 +68,9 @@ const roleLabels: Record<string, string> = {
 };
 
 const roleColors: Record<string, string> = {
-  master: 'bg-purple-500',
-  admin: 'bg-blue-500',
-  funcionario: 'bg-green-500',
+  master: 'bg-blue-600',
+  admin: 'bg-blue-600',
+  funcionario: 'bg-green-600',
 };
 
 export function AppSidebar() {
@@ -104,9 +104,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-blue-100 bg-blue-50">
         <div className="flex items-center gap-2 px-2 py-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-amber-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600">
             <Coffee className="h-5 w-5 text-white" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
@@ -142,7 +142,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border">
+      <SidebarFooter className="border-t border-blue-100 bg-blue-50">
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-2 group-data-[collapsible=icon]:justify-center">
