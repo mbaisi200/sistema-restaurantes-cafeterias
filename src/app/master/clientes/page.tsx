@@ -34,19 +34,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { useEmpresas } from '@/hooks/useFirestore';
 import { auth, db } from '@/lib/firebase';
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import {
@@ -59,9 +49,8 @@ import {
   CheckCircle,
   Loader2,
   UserPlus,
-  KeyRound,
-  Mail,
   Building2,
+  KeyRound,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
@@ -89,7 +78,7 @@ export default function ClientesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [clienteComAdmin, setClienteComAdmin] = useState<Cliente[]>([]);
@@ -273,36 +262,6 @@ export default function ClientesPage() {
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!selectedCliente?.adminEmail) return;
-    
-    setSaving(true);
-    
-    try {
-      const authInstance = auth();
-      if (!authInstance) throw new Error('Firebase não inicializado');
-
-      await sendPasswordResetEmail(authInstance, selectedCliente.adminEmail);
-
-      toast({
-        title: 'Email de redefinição enviado!',
-        description: `Um email foi enviado para ${selectedCliente.adminEmail} com instruções para redefinir a senha.`,
-      });
-
-      setResetPasswordDialogOpen(false);
-      
-    } catch (error: unknown) {
-      console.error('Erro ao enviar email de redefinição:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao enviar email',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const openEditDialog = (cliente: Cliente) => {
     setSelectedCliente(cliente);
     setEditCnpjValue(formatCNPJ(cliente.cnpj || ''));
@@ -315,10 +274,7 @@ export default function ClientesPage() {
     setViewDialogOpen(true);
   };
 
-  const openResetPasswordDialog = (cliente: Cliente) => {
-    setSelectedCliente(cliente);
-    setResetPasswordDialogOpen(true);
-  };
+
 
   const planoCores: Record<string, string> = {
     basico: 'bg-gray-500',
@@ -647,10 +603,6 @@ export default function ClientesPage() {
                                   <Edit className="mr-2 h-4 w-4" />
                                   Editar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openResetPasswordDialog(cliente)}>
-                                  <KeyRound className="mr-2 h-4 w-4" />
-                                  Redefinir Senha
-                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {cliente.status === 'ativo' ? (
                                   <DropdownMenuItem 
@@ -903,10 +855,10 @@ export default function ClientesPage() {
                         <p className="text-xs text-muted-foreground">O email não pode ser alterado</p>
                       </div>
                     </div>
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                      <p className="text-sm text-amber-800 flex items-center gap-2">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800 flex items-center gap-2">
                         <KeyRound className="h-4 w-4" />
-                        Para alterar a senha, use a opção &quot;Redefinir Senha&quot; no menu de ações.
+                        O administrador pode alterar sua própria senha acessando &quot;Alterar Senha&quot; no menu do sistema.
                       </p>
                     </div>
                   </div>
@@ -925,44 +877,6 @@ export default function ClientesPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Dialog Reset Password */}
-        <AlertDialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5" />
-                Redefinir Senha
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                Um email de redefinição de senha será enviado para:
-                <br />
-                <strong className="text-foreground">{selectedCliente?.adminEmail}</strong>
-                <br /><br />
-                O administrador receberá um link para criar uma nova senha.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={handleResetPassword} 
-                disabled={saving}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Enviando...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Enviar Email
-                  </>
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </MainLayout>
     </ProtectedRoute>
   );
