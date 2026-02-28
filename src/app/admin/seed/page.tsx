@@ -5,16 +5,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { db, auth } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, doc, setDoc, updateDoc, increment, Timestamp } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { Database, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { Database, CheckCircle, XCircle, Loader2, AlertTriangle, Building2 } from 'lucide-react';
 
 interface SeedStatus {
   step: string;
   status: 'pending' | 'running' | 'done' | 'error';
   count?: number;
   message?: string;
+}
+
+interface Empresa {
+  id: string;
+  nome: string;
+  status?: string;
 }
 
 const CORES_CATEGORIAS = [
@@ -120,6 +127,8 @@ const CATEGORIAS_CONTAS_RECEBER = ['clientes', 'eventos', 'delivery parceiros'];
 
 export default function SeedPage() {
   const [loading, setLoading] = useState(false);
+  const [loadingEmpresas, setLoadingEmpresas] = useState(true);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
   const [empresaNome, setEmpresaNome] = useState<string>('');
   const [progress, setProgress] = useState(0);
@@ -144,37 +153,57 @@ export default function SeedPage() {
   };
 
   useEffect(() => {
-    // Buscar empresa SALÃO DO JAIME ao carregar
-    const buscarEmpresa = async () => {
+    const buscarEmpresas = async () => {
       try {
         const dbInstance = db();
         if (!dbInstance) {
           addLog('Firebase não inicializado. Verifique as variáveis de ambiente.');
+          setLoadingEmpresas(false);
           return;
         }
 
         const empresasQuery = query(collection(dbInstance, 'empresas'));
         const snapshot = await getDocs(empresasQuery);
         
-        for (const doc of snapshot.docs) {
+        const empresasLista: Empresa[] = [];
+        snapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.nome && data.nome.toUpperCase().includes('JAIME')) {
-            setEmpresaId(doc.id);
-            setEmpresaNome(data.nome);
-            addLog(`Empresa encontrada: ${data.nome} (${doc.id})`);
-            return;
-          }
-        }
+          empresasLista.push({
+            id: doc.id,
+            nome: data.nome || 'Sem nome',
+            status: data.status
+          });
+        });
+
+        // Ordenar por nome
+        empresasLista.sort((a, b) => a.nome.localeCompare(b.nome));
         
-        addLog('Empresa "SALÃO DO JAIME" não encontrada. Verifique o cadastro.');
+        setEmpresas(empresasLista);
+        
+        if (empresasLista.length === 0) {
+          addLog('Nenhuma empresa cadastrada. Cadastre uma empresa primeiro.');
+        } else {
+          addLog(`${empresasLista.length} empresa(s) encontrada(s). Selecione uma para continuar.`);
+        }
       } catch (error) {
-        console.error('Erro ao buscar empresa:', error);
-        addLog('Erro ao buscar empresa. Verifique o console.');
+        console.error('Erro ao buscar empresas:', error);
+        addLog('Erro ao buscar empresas. Verifique o console.');
+      } finally {
+        setLoadingEmpresas(false);
       }
     };
 
-    buscarEmpresa();
+    buscarEmpresas();
   }, []);
+
+  const handleEmpresaChange = (value: string) => {
+    const empresa = empresas.find(e => e.id === value);
+    if (empresa) {
+      setEmpresaId(empresa.id);
+      setEmpresaNome(empresa.nome);
+      addLog(`Empresa selecionada: ${empresa.nome}`);
+    }
+  };
 
   const gerarPIN = () => {
     return String(Math.floor(1000 + Math.random() * 9000));
@@ -190,7 +219,7 @@ export default function SeedPage() {
 
   const executarSeed = async () => {
     if (!empresaId) {
-      addLog('Erro: Empresa não encontrada!');
+      addLog('Erro: Selecione uma empresa!');
       return;
     }
 
@@ -522,7 +551,7 @@ export default function SeedPage() {
 
       for (let i = 0; i < 20; i++) {
         const dataAbertura = gerarDataAleatoria(60);
-        const dataFechamento = new Date(dataAbertura.getTime() + 8 * 60 * 60 * 1000); // 8 horas depois
+        const dataFechamento = new Date(dataAbertura.getTime() + 8 * 60 * 60 * 1000);
         const valorInicial = Math.floor(Math.random() * 300) + 100;
         const totalVendas = Math.floor(Math.random() * 3000) + 500;
         const totalEntradas = totalVendas + Math.floor(Math.random() * 200);
@@ -549,7 +578,6 @@ export default function SeedPage() {
           observacaoFechamento: ''
         });
 
-        // Criar movimentações de caixa para cada sessão
         await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
           caixaId: caixaRef.id,
           empresaId,
@@ -646,21 +674,51 @@ export default function SeedPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Status da empresa */}
-          {empresaId ? (
+          {/* Seletor de empresa */}
+          <div className="space-y-2">
+            <Label htmlFor="empresa" className="flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Selecione a Empresa
+            </Label>
+            {loadingEmpresas ? (
+              <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">Carregando empresas...</span>
+              </div>
+            ) : empresas.length === 0 ? (
+              <div className="flex items-center gap-2 p-4 bg-red-50 rounded-lg border border-red-200">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-800">Nenhuma empresa cadastrada</p>
+                  <p className="text-sm text-red-600">Cadastre uma empresa antes de executar o seed.</p>
+                </div>
+              </div>
+            ) : (
+              <Select value={empresaId || ''} onValueChange={handleEmpresaChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma empresa..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((empresa) => (
+                    <SelectItem key={empresa.id} value={empresa.id}>
+                      {empresa.nome}
+                      {empresa.status && empresa.status !== 'ativo' && (
+                        <span className="ml-2 text-xs text-muted-foreground">({empresa.status})</span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Status da empresa selecionada */}
+          {empresaId && (
             <div className="flex items-center gap-2 p-4 bg-green-50 rounded-lg border border-green-200">
               <CheckCircle className="h-5 w-5 text-green-600" />
               <div>
-                <p className="font-medium text-green-800">Empresa encontrada</p>
+                <p className="font-medium text-green-800">Empresa selecionada</p>
                 <p className="text-sm text-green-600">{empresaNome} (ID: {empresaId.substring(0, 8)}...)</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-              <AlertTriangle className="h-5 w-5 text-yellow-600" />
-              <div>
-                <p className="font-medium text-yellow-800">Buscando empresa...</p>
-                <p className="text-sm text-yellow-600">Aguardando conexão com Firebase</p>
               </div>
             </div>
           )}
@@ -699,7 +757,7 @@ export default function SeedPage() {
           {/* Botão de executar */}
           <Button
             onClick={executarSeed}
-            disabled={loading || !empresaId}
+            disabled={loading || !empresaId || empresas.length === 0}
             className="w-full h-12 text-lg"
             size="lg"
           >
