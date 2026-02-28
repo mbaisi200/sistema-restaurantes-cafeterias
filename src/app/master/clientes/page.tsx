@@ -34,11 +34,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useEmpresas } from '@/hooks/useFirestore';
 import { auth, db } from '@/lib/firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { useState } from 'react';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { doc, setDoc, Timestamp, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -49,9 +59,27 @@ import {
   CheckCircle,
   Loader2,
   UserPlus,
+  KeyRound,
+  Mail,
+  Building2,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { maskCNPJ, maskPhone, unmask } from '@/lib/masks';
+
+interface Cliente {
+  id: string;
+  nome: string;
+  cnpj?: string;
+  email?: string;
+  telefone?: string;
+  cidade?: string;
+  estado?: string;
+  plano?: string;
+  status?: string;
+  adminNome?: string;
+  adminEmail?: string;
+  adminId?: string;
+}
 
 export default function ClientesPage() {
   const { empresas, loading, adicionarEmpresa, atualizarEmpresa } = useEmpresas();
@@ -59,16 +87,65 @@ export default function ClientesPage() {
   const [planoFilter, setPlanoFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [clienteComAdmin, setClienteComAdmin] = useState<Cliente[]>([]);
   const { toast } = useToast();
 
   // Estados controlados para máscaras
   const [cnpjValue, setCnpjValue] = useState('');
   const [telefoneValue, setTelefoneValue] = useState('');
 
-  const filteredClientes = empresas.filter(cliente => {
+  // Estados para edição
+  const [editCnpjValue, setEditCnpjValue] = useState('');
+  const [editTelefoneValue, setEditTelefoneValue] = useState('');
+
+  // Carregar dados dos admins das empresas
+  useEffect(() => {
+    const carregarAdmins = async () => {
+      const dbInstance = db();
+      if (!dbInstance || empresas.length === 0) return;
+
+      try {
+        const usuariosQuery = query(collection(dbInstance, 'usuarios'), where('role', '==', 'admin'));
+        const snapshot = await getDocs(usuariosQuery);
+        
+        const adminsMap: Record<string, { nome: string; email: string; id: string }> = {};
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.empresaId) {
+            adminsMap[data.empresaId] = {
+              nome: data.nome,
+              email: data.email,
+              id: doc.id,
+            };
+          }
+        });
+
+        const empresasComAdmin = empresas.map(empresa => ({
+          ...empresa,
+          adminNome: adminsMap[empresa.id]?.nome || 'Não encontrado',
+          adminEmail: adminsMap[empresa.id]?.email || 'Não encontrado',
+          adminId: adminsMap[empresa.id]?.id || null,
+        }));
+
+        setClienteComAdmin(empresasComAdmin);
+      } catch (error) {
+        console.error('Erro ao carregar admins:', error);
+        setClienteComAdmin(empresas);
+      }
+    };
+
+    carregarAdmins();
+  }, [empresas]);
+
+  const filteredClientes = clienteComAdmin.filter(cliente => {
     const matchSearch = cliente.nome.toLowerCase().includes(search.toLowerCase()) ||
-                       (cliente.cnpj && cliente.cnpj.includes(search));
+                       (cliente.cnpj && cliente.cnpj.includes(search)) ||
+                       (cliente.adminEmail && cliente.adminEmail.toLowerCase().includes(search.toLowerCase()));
     const matchPlano = planoFilter === 'all' || cliente.plano === planoFilter;
     const matchStatus = statusFilter === 'all' || cliente.status === statusFilter;
     return matchSearch && matchPlano && matchStatus;
@@ -81,18 +158,16 @@ export default function ClientesPage() {
     const formData = new FormData(e.currentTarget);
     
     try {
-      // 1. Criar a empresa
       const empresaId = await adicionarEmpresa({
         nome: formData.get('nome') as string,
-        cnpj: unmask(cnpjValue), // Salva sem máscara
+        cnpj: unmask(cnpjValue),
         email: formData.get('email') as string,
-        telefone: unmask(telefoneValue), // Salva sem máscara
+        telefone: unmask(telefoneValue),
         cidade: formData.get('cidade') as string,
         estado: formData.get('estado') as string,
         plano: formData.get('plano') as string,
       });
 
-      // 2. Criar o usuário admin no Firebase Auth
       const adminNome = formData.get('admin_nome') as string;
       const adminEmail = formData.get('admin_email') as string;
       const adminSenha = formData.get('admin_senha') as string;
@@ -106,7 +181,6 @@ export default function ClientesPage() {
         adminSenha
       );
 
-      // 3. Criar o documento do usuário no Firestore
       const dbInstance = db();
       if (!dbInstance) throw new Error('Firebase não inicializado');
 
@@ -125,12 +199,10 @@ export default function ClientesPage() {
         description: `Empresa e usuário admin criados. O admin pode logar com o email ${adminEmail}`,
       });
 
-      // Fechar diálogo e limpar campos
       setDialogOpen(false);
       setCnpjValue('');
       setTelefoneValue('');
       
-      // Não há redirect - usuário permanece no painel de clientes
     } catch (error: unknown) {
       console.error('Erro ao salvar cliente:', error);
       let mensagem = 'Erro ao cadastrar cliente';
@@ -151,6 +223,103 @@ export default function ClientesPage() {
     }
   };
 
+  const handleEditar = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedCliente) return;
+    
+    setSaving(true);
+    
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      await atualizarEmpresa(selectedCliente.id, {
+        nome: formData.get('nome') as string,
+        cnpj: unmask(editCnpjValue),
+        email: formData.get('email') as string,
+        telefone: unmask(editTelefoneValue),
+        cidade: formData.get('cidade') as string,
+        estado: formData.get('estado') as string,
+        plano: formData.get('plano') as string,
+      });
+
+      // Atualizar nome do admin no Firestore se necessário
+      const novoAdminNome = formData.get('admin_nome') as string;
+      if (novoAdminNome && selectedCliente.adminId && novoAdminNome !== selectedCliente.adminNome) {
+        const dbInstance = db();
+        if (dbInstance) {
+          await updateDoc(doc(dbInstance, 'usuarios', selectedCliente.adminId), {
+            nome: novoAdminNome,
+            atualizadoEm: Timestamp.now(),
+          });
+        }
+      }
+
+      toast({
+        title: 'Cliente atualizado com sucesso!',
+        description: 'Os dados foram salvos.',
+      });
+
+      setEditDialogOpen(false);
+      
+    } catch (error: unknown) {
+      console.error('Erro ao editar cliente:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao editar',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedCliente?.adminEmail) return;
+    
+    setSaving(true);
+    
+    try {
+      const authInstance = auth();
+      if (!authInstance) throw new Error('Firebase não inicializado');
+
+      await sendPasswordResetEmail(authInstance, selectedCliente.adminEmail);
+
+      toast({
+        title: 'Email de redefinição enviado!',
+        description: `Um email foi enviado para ${selectedCliente.adminEmail} com instruções para redefinir a senha.`,
+      });
+
+      setResetPasswordDialogOpen(false);
+      
+    } catch (error: unknown) {
+      console.error('Erro ao enviar email de redefinição:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar email',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditDialog = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setEditCnpjValue(formatCNPJ(cliente.cnpj || ''));
+    setEditTelefoneValue(formatPhone(cliente.telefone || ''));
+    setEditDialogOpen(true);
+  };
+
+  const openViewDialog = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setViewDialogOpen(true);
+  };
+
+  const openResetPasswordDialog = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setResetPasswordDialogOpen(true);
+  };
+
   const planoCores: Record<string, string> = {
     basico: 'bg-gray-500',
     profissional: 'bg-blue-500',
@@ -163,17 +332,15 @@ export default function ClientesPage() {
     bloqueado: 'bg-red-500',
   };
 
-  // Função para formatar CNPJ para exibição
   const formatCNPJ = (cnpj: string) => {
-    if (!cnpj) return '-';
+    if (!cnpj) return '';
     const numbers = cnpj.replace(/\D/g, '');
     if (numbers.length !== 14) return cnpj;
     return numbers.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
   };
 
-  // Função para formatar telefone para exibição
   const formatPhone = (phone: string) => {
-    if (!phone) return '-';
+    if (!phone) return '';
     const numbers = phone.replace(/\D/g, '');
     if (numbers.length === 11) {
       return numbers.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
@@ -368,7 +535,7 @@ export default function ClientesPage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome ou CNPJ..."
+                      placeholder="Buscar por nome, CNPJ ou email do admin..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className="pl-10"
@@ -424,7 +591,7 @@ export default function ClientesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Empresa</TableHead>
-                        <TableHead>CNPJ</TableHead>
+                        <TableHead>Admin</TableHead>
                         <TableHead>Localização</TableHead>
                         <TableHead>Plano</TableHead>
                         <TableHead>Status</TableHead>
@@ -445,7 +612,12 @@ export default function ClientesPage() {
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell>{formatCNPJ(cliente.cnpj)}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{cliente.adminNome}</p>
+                              <p className="text-sm text-muted-foreground">{cliente.adminEmail}</p>
+                            </div>
+                          </TableCell>
                           <TableCell>{cliente.cidade || '-'}/{cliente.estado || '-'}</TableCell>
                           <TableCell>
                             <Badge className={planoCores[cliente.plano] || 'bg-gray-500'}>
@@ -467,13 +639,17 @@ export default function ClientesPage() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Ações</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openViewDialog(cliente)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   Visualizar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditDialog(cliente)}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openResetPasswordDialog(cliente)}>
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  Redefinir Senha
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {cliente.status === 'ativo' ? (
@@ -505,6 +681,288 @@ export default function ClientesPage() {
             </Card>
           )}
         </div>
+
+        {/* Dialog Visualizar */}
+        <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Detalhes do Cliente
+              </DialogTitle>
+            </DialogHeader>
+            {selectedCliente && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
+                  <div className="h-16 w-16 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white text-2xl font-bold">
+                    {selectedCliente.nome.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedCliente.nome}</h3>
+                    <p className="text-muted-foreground">{selectedCliente.email}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">CNPJ</Label>
+                    <p className="font-medium">{formatCNPJ(selectedCliente.cnpj || '') || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Telefone</Label>
+                    <p className="font-medium">{formatPhone(selectedCliente.telefone || '') || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Cidade</Label>
+                    <p className="font-medium">{selectedCliente.cidade || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Estado</Label>
+                    <p className="font-medium">{selectedCliente.estado || '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Plano</Label>
+                    <p className="font-medium">
+                      <Badge className={planoCores[selectedCliente.plano] || 'bg-gray-500'}>
+                        {selectedCliente.plano?.charAt(0).toUpperCase() + selectedCliente.plano?.slice(1) || 'Sem plano'}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Status</Label>
+                    <p className="font-medium">
+                      <Badge className={statusCores[selectedCliente.status] || 'bg-gray-500'}>
+                        {selectedCliente.status?.charAt(0).toUpperCase() + selectedCliente.status?.slice(1) || 'Indefinido'}
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div>
+                  <Label className="text-muted-foreground flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Administrador
+                  </Label>
+                  <div className="mt-2 p-3 bg-muted rounded-lg">
+                    <p className="font-medium">{selectedCliente.adminNome}</p>
+                    <p className="text-sm text-muted-foreground">{selectedCliente.adminEmail}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setViewDialogOpen(false)}>
+                Fechar
+              </Button>
+              <Button onClick={() => {
+                setViewDialogOpen(false);
+                if (selectedCliente) openEditDialog(selectedCliente);
+              }}>
+                <Edit className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Editar */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Edit className="h-5 w-5" />
+                Editar Cliente
+              </DialogTitle>
+              <DialogDescription>
+                Altere os dados da empresa e do administrador
+              </DialogDescription>
+            </DialogHeader>
+            {selectedCliente && (
+              <form onSubmit={handleEditar}>
+                <div className="space-y-6 py-4">
+                  {/* Dados da Empresa */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Dados da Empresa
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_nome">Nome da Empresa *</Label>
+                        <Input 
+                          id="edit_nome" 
+                          name="nome" 
+                          defaultValue={selectedCliente.nome}
+                          required 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_cnpj">CNPJ</Label>
+                        <Input 
+                          id="edit_cnpj" 
+                          name="cnpj" 
+                          placeholder="00.000.000/0000-00"
+                          value={editCnpjValue}
+                          onChange={(e) => setEditCnpjValue(maskCNPJ(e.target.value))}
+                          maxLength={18}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_email">Email da Empresa *</Label>
+                        <Input 
+                          id="edit_email" 
+                          name="email" 
+                          type="email" 
+                          defaultValue={selectedCliente.email}
+                          required 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_telefone">Telefone</Label>
+                        <Input 
+                          id="edit_telefone" 
+                          name="telefone" 
+                          placeholder="(00) 00000-0000"
+                          value={editTelefoneValue}
+                          onChange={(e) => setEditTelefoneValue(maskPhone(e.target.value))}
+                          maxLength={15}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_cidade">Cidade</Label>
+                        <Input 
+                          id="edit_cidade" 
+                          name="cidade" 
+                          defaultValue={selectedCliente.cidade}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_estado">Estado</Label>
+                        <Select name="estado" defaultValue={selectedCliente.estado}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="UF" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="SP">São Paulo</SelectItem>
+                            <SelectItem value="RJ">Rio de Janeiro</SelectItem>
+                            <SelectItem value="MG">Minas Gerais</SelectItem>
+                            <SelectItem value="PR">Paraná</SelectItem>
+                            <SelectItem value="RS">Rio Grande do Sul</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_plano">Plano *</Label>
+                        <Select name="plano" required defaultValue={selectedCliente.plano}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="basico">Básico</SelectItem>
+                            <SelectItem value="profissional">Profissional</SelectItem>
+                            <SelectItem value="premium">Premium</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Dados do Administrador */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      Dados do Administrador
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_admin_nome">Nome do Administrador</Label>
+                        <Input 
+                          id="edit_admin_nome" 
+                          name="admin_nome" 
+                          defaultValue={selectedCliente.adminNome !== 'Não encontrado' ? selectedCliente.adminNome : ''}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit_admin_email">Email do Administrador</Label>
+                        <Input 
+                          id="edit_admin_email" 
+                          name="admin_email" 
+                          type="email" 
+                          value={selectedCliente.adminEmail}
+                          disabled
+                          className="bg-muted"
+                        />
+                        <p className="text-xs text-muted-foreground">O email não pode ser alterado</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm text-amber-800 flex items-center gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        Para alterar a senha, use a opção &quot;Redefinir Senha&quot; no menu de ações.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" type="button" onClick={() => setEditDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Salvar Alterações
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Reset Password */}
+        <AlertDialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Redefinir Senha
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Um email de redefinição de senha será enviado para:
+                <br />
+                <strong className="text-foreground">{selectedCliente?.adminEmail}</strong>
+                <br /><br />
+                O administrador receberá um link para criar uma nova senha.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleResetPassword} 
+                disabled={saving}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Enviar Email
+                  </>
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </MainLayout>
     </ProtectedRoute>
   );
