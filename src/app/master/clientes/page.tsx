@@ -78,8 +78,12 @@ export default function ClientesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [clienteComAdmin, setClienteComAdmin] = useState<Cliente[]>([]);
   const { toast } = useToast();
@@ -272,6 +276,82 @@ export default function ClientesPage() {
   const openViewDialog = (cliente: Cliente) => {
     setSelectedCliente(cliente);
     setViewDialogOpen(true);
+  };
+
+  const openResetPasswordDialog = (cliente: Cliente) => {
+    setSelectedCliente(cliente);
+    setNewPassword('');
+    setConfirmPassword('');
+    setResetPasswordDialogOpen(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedCliente?.adminId) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'ID do administrador não encontrado',
+      });
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'A senha deve ter pelo menos 6 caracteres',
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'As senhas não coincidem',
+      });
+      return;
+    }
+
+    setResettingPassword(true);
+
+    try {
+      const response = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          uid: selectedCliente.adminId,
+          newPassword: newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao redefinir senha');
+      }
+
+      toast({
+        title: 'Senha redefinida!',
+        description: `A senha do administrador ${selectedCliente.adminNome} foi alterada com sucesso.`,
+      });
+
+      setResetPasswordDialogOpen(false);
+      setNewPassword('');
+      setConfirmPassword('');
+
+    } catch (error: unknown) {
+      console.error('Erro ao redefinir senha:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao redefinir senha',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+      });
+    } finally {
+      setResettingPassword(false);
+    }
   };
 
 
@@ -603,6 +683,10 @@ export default function ClientesPage() {
                                   <Edit className="mr-2 h-4 w-4" />
                                   Editar
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openResetPasswordDialog(cliente)}>
+                                  <KeyRound className="mr-2 h-4 w-4" />
+                                  Redefinir Senha
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {cliente.status === 'ativo' ? (
                                   <DropdownMenuItem 
@@ -858,7 +942,7 @@ export default function ClientesPage() {
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800 flex items-center gap-2">
                         <KeyRound className="h-4 w-4" />
-                        O administrador pode alterar sua própria senha acessando &quot;Alterar Senha&quot; no menu do sistema.
+                        Para alterar a senha, use a opção &quot;Redefinir Senha&quot; no menu de ações do cliente.
                       </p>
                     </div>
                   </div>
@@ -874,6 +958,72 @@ export default function ClientesPage() {
                 </DialogFooter>
               </form>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog Redefinir Senha */}
+        <Dialog open={resetPasswordDialogOpen} onOpenChange={setResetPasswordDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <KeyRound className="h-5 w-5" />
+                Redefinir Senha do Administrador
+              </DialogTitle>
+              <DialogDescription>
+                Defina uma nova senha para o administrador do cliente
+              </DialogDescription>
+            </DialogHeader>
+            {selectedCliente && (
+              <div className="space-y-4">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="font-medium">{selectedCliente.adminNome}</p>
+                  <p className="text-sm text-muted-foreground">{selectedCliente.adminEmail}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new_password">Nova Senha *</Label>
+                  <Input
+                    id="new_password"
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={6}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm_password">Confirmar Senha *</Label>
+                  <Input
+                    id="confirm_password"
+                    type="password"
+                    placeholder="Repita a nova senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    minLength={6}
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setResetPasswordDialogOpen(false);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleResetPassword}
+                disabled={resettingPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+              >
+                {resettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Redefinir Senha
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
