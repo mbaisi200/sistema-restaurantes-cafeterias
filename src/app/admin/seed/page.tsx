@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { db, auth } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { Database, CheckCircle, XCircle, Loader2, AlertTriangle, Building2 } from 'lucide-react';
+import { collection, addDoc, getDocs, query, where, Timestamp, deleteDoc, doc } from 'firebase/firestore';
+import { Database, CheckCircle, XCircle, Loader2, AlertTriangle, Building2, Trash2 } from 'lucide-react';
 
 interface SeedStatus {
   step: string;
@@ -125,6 +125,22 @@ const FORNECEDORES = [
 const CATEGORIAS_CONTAS_PAGAR = ['fornecedores', 'aluguel', 'energia', 'água', 'impostos', 'salários', 'manutenção'];
 const CATEGORIAS_CONTAS_RECEBER = ['clientes', 'eventos', 'delivery parceiros'];
 
+// Coleções que serão limpas
+const COLECOES_PARA_LIMPAR = [
+  'categorias',
+  'funcionarios',
+  'mesas',
+  'produtos',
+  'vendas',
+  'itens_venda',
+  'pagamentos',
+  'estoque_movimentos',
+  'contas',
+  'caixas',
+  'movimentacoes_caixa',
+  'logs'
+];
+
 export default function SeedPage() {
   const [loading, setLoading] = useState(false);
   const [loadingEmpresas, setLoadingEmpresas] = useState(true);
@@ -175,7 +191,6 @@ export default function SeedPage() {
           });
         });
 
-        // Ordenar por nome
         empresasLista.sort((a, b) => a.nome.localeCompare(b.nome));
         
         setEmpresas(empresasLista);
@@ -217,6 +232,20 @@ export default function SeedPage() {
     return data;
   };
 
+  // Função para limpar coleção por empresaId
+  const limparColecao = async (dbInstance: FirebaseFirestore, nomeColecao: string, empresaId: string): Promise<number> => {
+    const q = query(collection(dbInstance, nomeColecao), where('empresaId', '==', empresaId));
+    const snapshot = await getDocs(q);
+    
+    let deletados = 0;
+    for (const docSnapshot of snapshot.docs) {
+      await deleteDoc(doc(dbInstance, nomeColecao, docSnapshot.id));
+      deletados++;
+    }
+    
+    return deletados;
+  };
+
   const executarSeed = async () => {
     if (!empresaId) {
       addLog('Erro: Selecione uma empresa!');
@@ -243,6 +272,32 @@ export default function SeedPage() {
 
     try {
       // ==========================================
+      // 0. LIMPAR DADOS EXISTENTES
+      // ==========================================
+      updateStatus('Limpando dados antigos', 'running');
+      addLog('🧹 Limpando dados existentes da empresa...');
+
+      let totalDeletados = 0;
+      for (const colecao of COLECOES_PARA_LIMPAR) {
+        try {
+          const deletados = await limparColecao(dbInstance as unknown as FirebaseFirestore, colecao, empresaId);
+          if (deletados > 0) {
+            addLog(`  - ${colecao}: ${deletados} registro(s) removido(s)`);
+          }
+          totalDeletados += deletados;
+        } catch (err) {
+          addLog(`  - ${colecao}: erro ao limpar (pode estar vazia)`);
+        }
+      }
+
+      updateStatus('Limpando dados antigos', 'done', totalDeletados);
+      setProgressValue(5);
+      addLog(`✅ ${totalDeletados} registros antigos removidos.`);
+      addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      addLog('📦 Iniciando criação de novos dados...');
+      addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      // ==========================================
       // 1. CRIAR CATEGORIAS
       // ==========================================
       updateStatus('Categorias', 'running');
@@ -266,7 +321,7 @@ export default function SeedPage() {
       }
       
       updateStatus('Categorias', 'done', Object.keys(categoriasMap).length);
-      setProgressValue(5);
+      setProgressValue(10);
       addLog(`${Object.keys(categoriasMap).length} categorias criadas.`);
 
       // ==========================================
@@ -301,7 +356,7 @@ export default function SeedPage() {
       }
 
       updateStatus('Funcionários', 'done', funcionariosIds.length);
-      setProgressValue(10);
+      setProgressValue(15);
       addLog(`${funcionariosIds.length} funcionários criados.`);
 
       // ==========================================
@@ -324,7 +379,7 @@ export default function SeedPage() {
       }
 
       updateStatus('Mesas', 'done', mesasIds.length);
-      setProgressValue(15);
+      setProgressValue(20);
       addLog(`${mesasIds.length} mesas criadas.`);
 
       // ==========================================
@@ -362,7 +417,7 @@ export default function SeedPage() {
       }
 
       updateStatus('Produtos', 'done', produtosIds.length);
-      setProgressValue(20);
+      setProgressValue(25);
       addLog(`${produtosIds.length} produtos criados.`);
 
       // ==========================================
@@ -379,7 +434,6 @@ export default function SeedPage() {
         const tipoVenda = TIPOS_VENDA[Math.floor(Math.random() * TIPOS_VENDA.length)];
         const funcionarioId = funcionariosIds[Math.floor(Math.random() * funcionariosIds.length)];
         
-        // Gerar itens da venda (1-5 itens)
         const numItens = Math.floor(Math.random() * 5) + 1;
         let subtotal = 0;
         const itensVenda: {produtoId: string, quantidade: number, precoUnitario: number}[] = [];
@@ -420,7 +474,6 @@ export default function SeedPage() {
         });
         vendasIds.push(vendaRef.id);
 
-        // Criar itens_venda
         for (const item of itensVenda) {
           await addDoc(collection(dbInstance, 'itens_venda'), {
             vendaId: vendaRef.id,
@@ -432,7 +485,6 @@ export default function SeedPage() {
           });
         }
 
-        // Criar pagamento
         const formaPagamento = FORMAS_PAGAMENTO[Math.floor(Math.random() * FORMAS_PAGAMENTO.length)];
         const troco = formaPagamento === 'dinheiro' && Math.random() > 0.5 
           ? Math.floor((total + 10) - total) 
@@ -447,14 +499,13 @@ export default function SeedPage() {
           criadoEm: Timestamp.fromDate(dataVenda)
         });
 
-        // Atualizar progresso
         if (i % 20 === 0) {
-          setProgressValue(20 + Math.floor((i / NUM_VENDAS) * 50));
+          setProgressValue(25 + Math.floor((i / NUM_VENDAS) * 50));
         }
       }
 
       updateStatus('Vendas', 'done', NUM_VENDAS);
-      setProgressValue(70);
+      setProgressValue(75);
       addLog(`${NUM_VENDAS} vendas criadas com seus itens e pagamentos.`);
 
       // ==========================================
@@ -494,7 +545,6 @@ export default function SeedPage() {
       updateStatus('Contas a Pagar/Receber', 'running');
       addLog('Criando contas a pagar e receber...');
 
-      // Contas a pagar
       for (let i = 0; i < 25; i++) {
         const vencimento = new Date();
         vencimento.setDate(vencimento.getDate() + Math.floor(Math.random() * 60) - 30);
@@ -517,7 +567,6 @@ export default function SeedPage() {
         });
       }
 
-      // Contas a receber
       for (let i = 0; i < 15; i++) {
         const vencimento = new Date();
         vencimento.setDate(vencimento.getDate() + Math.floor(Math.random() * 45));
@@ -540,7 +589,7 @@ export default function SeedPage() {
       }
 
       updateStatus('Contas a Pagar/Receber', 'done', 40);
-      setProgressValue(90);
+      setProgressValue(85);
       addLog('40 contas (pagar/receber) criadas.');
 
       // ==========================================
@@ -674,6 +723,17 @@ export default function SeedPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Aviso importante */}
+          <div className="flex items-start gap-2 p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-800">⚠️ Atenção</p>
+              <p className="text-sm text-amber-700">
+                Este processo irá <strong>excluir todos os dados existentes</strong> da empresa selecionada e criar novos dados de teste.
+              </p>
+            </div>
+          </div>
+
           {/* Seletor de empresa */}
           <div className="space-y-2">
             <Label htmlFor="empresa" className="flex items-center gap-2">
@@ -758,7 +818,7 @@ export default function SeedPage() {
           <Button
             onClick={executarSeed}
             disabled={loading || !empresaId || empresas.length === 0}
-            className="w-full h-12 text-lg"
+            className="w-full h-12 text-lg bg-orange-600 hover:bg-orange-700"
             size="lg"
           >
             {loading ? (
@@ -768,8 +828,8 @@ export default function SeedPage() {
               </>
             ) : (
               <>
-                <Database className="mr-2 h-5 w-5" />
-                Executar População de Dados
+                <Trash2 className="mr-2 h-5 w-5" />
+                Limpar e Popular Dados
               </>
             )}
           </Button>
@@ -780,7 +840,7 @@ export default function SeedPage() {
               <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Log de Execução</h3>
               <div className="bg-gray-900 text-gray-100 p-4 rounded-lg font-mono text-sm max-h-96 overflow-y-auto">
                 {logs.map((log, idx) => (
-                  <div key={idx} className={log.includes('✅') ? 'text-green-400' : log.includes('❌') ? 'text-red-400' : ''}>
+                  <div key={idx} className={log.includes('✅') ? 'text-green-400' : log.includes('❌') ? 'text-red-400' : log.includes('🧹') ? 'text-yellow-400' : log.includes('📦') ? 'text-blue-400' : ''}>
                     {log}
                   </div>
                 ))}
