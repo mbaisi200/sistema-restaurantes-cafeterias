@@ -82,8 +82,6 @@ export default function ClientesPage() {
 
   const [saving, setSaving] = useState(false);
   const [resettingPassword, setResettingPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [clienteComAdmin, setClienteComAdmin] = useState<Cliente[]>([]);
   const { toast } = useToast();
@@ -280,35 +278,15 @@ export default function ClientesPage() {
 
   const openResetPasswordDialog = (cliente: Cliente) => {
     setSelectedCliente(cliente);
-    setNewPassword('');
-    setConfirmPassword('');
     setResetPasswordDialogOpen(true);
   };
 
   const handleResetPassword = async () => {
-    if (!selectedCliente?.adminId) {
+    if (!selectedCliente?.adminEmail) {
       toast({
         variant: 'destructive',
         title: 'Erro',
-        description: 'ID do administrador não encontrado',
-      });
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'A senha deve ter pelo menos 6 caracteres',
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'As senhas não coincidem',
+        description: 'Email do administrador não encontrado',
       });
       return;
     }
@@ -316,37 +294,34 @@ export default function ClientesPage() {
     setResettingPassword(true);
 
     try {
-      const response = await fetch('/api/admin/reset-password', {
+      const response = await fetch('/api/admin/send-reset-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          uid: selectedCliente.adminId,
-          newPassword: newPassword,
+          email: selectedCliente.adminEmail,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao redefinir senha');
+        throw new Error(data.error || 'Erro ao enviar email');
       }
 
       toast({
-        title: 'Senha redefinida!',
-        description: `A senha do administrador ${selectedCliente.adminNome} foi alterada com sucesso.`,
+        title: 'Email enviado!',
+        description: `Um email de redefinição de senha foi enviado para ${selectedCliente.adminEmail}`,
       });
 
       setResetPasswordDialogOpen(false);
-      setNewPassword('');
-      setConfirmPassword('');
 
     } catch (error: unknown) {
-      console.error('Erro ao redefinir senha:', error);
+      console.error('Erro ao enviar email:', error);
       toast({
         variant: 'destructive',
-        title: 'Erro ao redefinir senha',
+        title: 'Erro ao enviar email',
         description: error instanceof Error ? error.message : 'Erro desconhecido',
       });
     } finally {
@@ -970,58 +945,35 @@ export default function ClientesPage() {
                 Redefinir Senha do Administrador
               </DialogTitle>
               <DialogDescription>
-                Defina uma nova senha para o administrador do cliente
+                Um email de redefinição de senha será enviado para o administrador
               </DialogDescription>
             </DialogHeader>
             {selectedCliente && (
               <div className="space-y-4">
-                <div className="p-3 bg-muted rounded-lg">
+                <div className="p-4 bg-muted rounded-lg">
                   <p className="font-medium">{selectedCliente.adminNome}</p>
                   <p className="text-sm text-muted-foreground">{selectedCliente.adminEmail}</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="new_password">Nova Senha *</Label>
-                  <Input
-                    id="new_password"
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={6}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirm_password">Confirmar Senha *</Label>
-                  <Input
-                    id="confirm_password"
-                    type="password"
-                    placeholder="Repita a nova senha"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    minLength={6}
-                  />
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800">
+                    O administrador receberá um email com um link para criar uma nova senha.
+                  </p>
                 </div>
               </div>
             )}
             <DialogFooter>
               <Button 
                 variant="outline" 
-                onClick={() => {
-                  setResetPasswordDialogOpen(false);
-                  setNewPassword('');
-                  setConfirmPassword('');
-                }}
+                onClick={() => setResetPasswordDialogOpen(false)}
               >
                 Cancelar
               </Button>
               <Button 
                 onClick={handleResetPassword}
-                disabled={resettingPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                disabled={resettingPassword}
               >
                 {resettingPassword && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Redefinir Senha
+                Enviar Email
               </Button>
             </DialogFooter>
           </DialogContent>
