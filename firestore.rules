@@ -129,5 +129,37 @@ service cloud.firestore {
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated();
     }
+
+    // Collection: comandas - comandas abertas para clientes
+    match /comandas/{comandaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: itens_venda - itens de cada venda
+    match /itens_venda/{itemVendaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: pagamentos - registros de pagamento
+    match /pagamentos/{pagamentoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Collection: estoque_movimentos - movimentações de estoque
+    match /estoque_movimentos/{movimentoId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
   }
 }

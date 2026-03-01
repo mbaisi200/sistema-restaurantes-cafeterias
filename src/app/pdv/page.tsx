@@ -2,7 +2,7 @@
 
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProdutos, useCategorias, useMesas, useCaixa, registrarLog } from '@/hooks/useFirestore';
+import { useProdutos, useCategorias, useMesas, useCaixa, useComandas, registrarLog } from '@/hooks/useFirestore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,11 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, Timestamp, updateDoc, getDoc } from 'firebase/firestore';
 import {
   Search,
   Plus,
@@ -40,6 +41,9 @@ import {
   CheckCircle,
   Zap,
   TrendingUp,
+  ClipboardList,
+  UserPlus,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -51,7 +55,7 @@ interface ItemPedido {
   quantidade: number;
   atendenteId: string;
   atendenteNome: string;
-  tipoVenda: 'balcao' | 'mesa' | 'delivery';
+  tipoVenda: 'balcao' | 'mesa' | 'delivery' | 'comanda';
   mesaNumero?: number;
   cliente?: string;
   criadoEm: Date;
@@ -69,7 +73,7 @@ interface DeliveryInfo {
   observacao: string;
 }
 
-type TipoVenda = 'balcao' | 'mesa' | 'delivery';
+type TipoVenda = 'balcao' | 'mesa' | 'delivery' | 'comanda';
 
 export default function PDVPage() {
   const { user, empresaId, logout } = useAuth();
@@ -78,7 +82,16 @@ export default function PDVPage() {
   const { produtos, loading: loadingProdutos } = useProdutos();
   const { categorias, loading: loadingCategorias } = useCategorias();
   const { mesas, loading: loadingMesas, atualizarMesa } = useMesas();
-  const { caixaAberto, registrarVenda, abrirCaixa,fecharCaixa } = useCaixa();
+  const { caixaAberto, abrirCaixa, fecharCaixa } = useCaixa();
+  const { 
+    comandas, 
+    loading: loadingComandas, 
+    criarComanda, 
+    adicionarItem: adicionarItemComanda,
+    removerItem: removerItemComanda,
+    alterarQuantidadeItem: alterarQtdItemComanda,
+    fecharComanda: finalizarComanda 
+  } = useComandas();
   
   // Estados
   const [categoriaAtiva, setCategoriaAtiva] = useState<string>('todos');
@@ -90,17 +103,23 @@ export default function PDVPage() {
   const [deliveryInfo, setDeliveryInfo] = useState<DeliveryInfo>({
     nome: '', telefone: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', cep: '', observacao: '',
   });
+  const [comandaSelecionada, setComandaSelecionada] = useState<any>(null);
   const [itensPedido, setItensPedido] = useState<ItemPedido[]>([]);
   const [dialogPagamento, setDialogPagamento] = useState(false);
   const [dialogDelivery, setDialogDelivery] = useState(false);
+  const [dialogComanda, setDialogComanda] = useState(false);
   const [processando, setProcessando] = useState(false);
+  const [novoClienteComanda, setNovoClienteComanda] = useState('');
+  const [observacaoComanda, setObservacaoComanda] = useState('');
 
-  const loading = loadingProdutos || loadingCategorias || loadingMesas;
+  const loading = loadingProdutos || loadingCategorias || loadingMesas || loadingComandas;
 
   // Carregar pedidos da mesa selecionada
   useEffect(() => {
     if (tipoVenda !== 'mesa' || !mesaSelecionada || !empresaId) {
-      setItensPedido([]);
+      if (tipoVenda !== 'comanda') {
+        setItensPedido([]);
+      }
       return;
     }
 
@@ -128,6 +147,28 @@ export default function PDVPage() {
 
     return () => unsubscribe();
   }, [tipoVenda, mesaSelecionada, empresaId]);
+
+  // Carregar itens da comanda selecionada
+  useEffect(() => {
+    if (tipoVenda !== 'comanda' || !comandaSelecionada) {
+      return;
+    }
+
+    const itens = (comandaSelecionada.itens || []).map((item: any) => ({
+      id: item.id,
+      produtoId: item.produtoId,
+      nome: item.nome,
+      preco: item.preco,
+      quantidade: item.quantidade,
+      atendenteId: item.adicionadoPor || '',
+      atendenteNome: item.adicionadoPorNome || '',
+      tipoVenda: 'comanda' as const,
+      cliente: comandaSelecionada.nomeCliente,
+      criadoEm: item.adicionadoEm?.toDate() || new Date(),
+    }));
+
+    setItensPedido(itens);
+  }, [tipoVenda, comandaSelecionada]);
 
   // Produtos filtrados
   const produtosFiltrados = useMemo(() => {
@@ -160,6 +201,7 @@ export default function PDVPage() {
     switch (tipoVenda) {
       case 'mesa': return `Mesa ${numeroMesaSelecionada}`;
       case 'delivery': return 'Delivery';
+      case 'comanda': return comandaSelecionada ? `Comanda #${comandaSelecionada.numero}` : 'Comanda';
       default: return 'Balcão';
     }
   };
@@ -179,6 +221,11 @@ export default function PDVPage() {
     if (tipoVenda === 'delivery' && !deliverySelecionado) {
       toast({ variant: 'destructive', title: 'Inicie um delivery primeiro' });
       setDialogDelivery(true);
+      return;
+    }
+
+    if (tipoVenda === 'comanda' && !comandaSelecionada) {
+      toast({ variant: 'destructive', title: 'Selecione ou crie uma comanda primeiro' });
       return;
     }
 
@@ -214,6 +261,30 @@ export default function PDVPage() {
       } catch (error) {
         console.error('Erro ao salvar produto:', error);
         toast({ variant: 'destructive', title: 'Erro ao adicionar produto' });
+        return;
+      }
+    } else if (tipoVenda === 'comanda') {
+      // Para comanda, adiciona ao documento da comanda
+      try {
+        await adicionarItemComanda(comandaSelecionada.id, {
+          produtoId: produto.id,
+          nome: produto.nome,
+          preco: produto.preco,
+          quantidade: 1,
+        });
+
+        // Atualizar a comanda selecionada localmente
+        const comandaRef = doc(dbInstance, 'comandas', comandaSelecionada.id);
+        const comandaDoc = await getDoc(comandaRef);
+        if (comandaDoc.exists()) {
+          setComandaSelecionada({
+            id: comandaDoc.id,
+            ...comandaDoc.data(),
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao adicionar item na comanda:', error);
+        toast({ variant: 'destructive', title: 'Erro ao adicionar item' });
         return;
       }
     } else {
@@ -255,8 +326,23 @@ export default function PDVPage() {
       if (novaQtd <= 0) {
         await deleteDoc(doc(dbInstance, 'pedidos_temp', itemId));
       } else {
-        const { updateDoc } = await import('firebase/firestore');
         await updateDoc(doc(dbInstance, 'pedidos_temp', itemId), { quantidade: novaQtd });
+      }
+    } else if (tipoVenda === 'comanda') {
+      try {
+        await alterarQtdItemComanda(comandaSelecionada.id, itemId, novaQtd);
+        
+        // Atualizar a comanda selecionada localmente
+        const comandaRef = doc(dbInstance, 'comandas', comandaSelecionada.id);
+        const comandaDoc = await getDoc(comandaRef);
+        if (comandaDoc.exists()) {
+          setComandaSelecionada({
+            id: comandaDoc.id,
+            ...comandaDoc.data(),
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao alterar quantidade:', error);
       }
     } else {
       if (novaQtd <= 0) {
@@ -276,6 +362,22 @@ export default function PDVPage() {
 
     if (tipoVenda === 'mesa' || tipoVenda === 'delivery') {
       await deleteDoc(doc(dbInstance, 'pedidos_temp', itemId));
+    } else if (tipoVenda === 'comanda') {
+      try {
+        await removerItemComanda(comandaSelecionada.id, itemId);
+        
+        // Atualizar a comanda selecionada localmente
+        const comandaRef = doc(dbInstance, 'comandas', comandaSelecionada.id);
+        const comandaDoc = await getDoc(comandaRef);
+        if (comandaDoc.exists()) {
+          setComandaSelecionada({
+            id: comandaDoc.id,
+            ...comandaDoc.data(),
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao remover item:', error);
+      }
     } else {
       setItensPedido(itensPedido.filter(item => item.id !== itemId));
     }
@@ -298,6 +400,9 @@ export default function PDVPage() {
       setDeliverySelecionado('');
       setDeliveryInfo({ nome: '', telefone: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', cep: '', observacao: '' });
     }
+    if (tipoVenda === 'comanda') {
+      setComandaSelecionada(null);
+    }
   };
 
   // Selecionar mesa
@@ -306,6 +411,38 @@ export default function PDVPage() {
     setNumeroMesaSelecionada(numero);
     setTipoVenda('mesa');
     setDeliverySelecionado('');
+    setComandaSelecionada(null);
+  };
+
+  // Selecionar comanda
+  const selecionarComanda = (comanda: any) => {
+    setComandaSelecionada(comanda);
+    setTipoVenda('comanda');
+    setMesaSelecionada('');
+    setNumeroMesaSelecionada(0);
+    setDeliverySelecionado('');
+  };
+
+  // Criar nova comanda
+  const handleCriarComanda = async () => {
+    if (!novoClienteComanda.trim()) {
+      toast({ variant: 'destructive', title: 'Informe o nome do cliente' });
+      return;
+    }
+
+    try {
+      const result = await criarComanda(novoClienteComanda, observacaoComanda);
+      
+      toast({ title: `Comanda #${result.numero} criada para ${novoClienteComanda}` });
+      
+      setDialogComanda(false);
+      setNovoClienteComanda('');
+      setObservacaoComanda('');
+      
+    } catch (error) {
+      console.error('Erro ao criar comanda:', error);
+      toast({ variant: 'destructive', title: 'Erro ao criar comanda' });
+    }
   };
 
   // Iniciar delivery
@@ -327,16 +464,25 @@ export default function PDVPage() {
       setMesaSelecionada('');
       setNumeroMesaSelecionada(0);
       setItensPedido([]);
+      setComandaSelecionada(null);
     } else if (novoTipo === 'balcao') {
       setMesaSelecionada('');
       setNumeroMesaSelecionada(0);
       setDeliverySelecionado('');
+      setComandaSelecionada(null);
+      setItensPedido([]);
       setDeliveryInfo({ nome: '', telefone: '', endereco: '', numero: '', complemento: '', bairro: '', cidade: '', cep: '', observacao: '' });
     } else if (novoTipo === 'delivery') {
       setMesaSelecionada('');
       setNumeroMesaSelecionada(0);
       setItensPedido([]);
+      setComandaSelecionada(null);
       setDialogDelivery(true);
+    } else if (novoTipo === 'comanda') {
+      setMesaSelecionada('');
+      setNumeroMesaSelecionada(0);
+      setDeliverySelecionado('');
+      setItensPedido([]);
     }
     setTipoVenda(novoTipo);
   };
@@ -350,23 +496,122 @@ export default function PDVPage() {
 
     setProcessando(true);
     try {
-      await registrarVenda(itensPedido, total, formaPagamento, tipoVenda, mesaSelecionada);
-      
-      // Log da venda finalizada
-      await registrarLog({
-        empresaId: empresaId || '',
-        usuarioId: user?.id || '',
-        usuarioNome: user?.nome || '',
-        acao: 'VENDA_FINALIZADA',
-        detalhes: `Venda de ${itensPedido.length} itens - R$ ${total.toFixed(2)}`,
-        tipo: 'venda',
-      });
+      if (tipoVenda === 'comanda') {
+        // Finalizar comanda
+        await finalizarComanda(comandaSelecionada.id, formaPagamento);
+        
+        // Log
+        await registrarLog({
+          empresaId: empresaId || '',
+          usuarioId: user?.id || '',
+          usuarioNome: user?.nome || '',
+          acao: 'COMANDA_FECHADA',
+          detalhes: `Comanda #${comandaSelecionada.numero} - ${comandaSelecionada.nomeCliente} - R$ ${total.toFixed(2)}`,
+          tipo: 'venda',
+        });
 
-      toast({ title: '✓ Venda finalizada com sucesso!' });
+        toast({ title: '✓ Comanda fechada com sucesso!' });
+        setComandaSelecionada(null);
+      } else {
+        // Criar venda no Firestore
+        const dbInstance = db();
+        if (!dbInstance) throw new Error('Firebase não inicializado');
+
+        const venda = {
+          empresaId,
+          mesaId: mesaSelecionada || null,
+          mesaNumero: numeroMesaSelecionada || null,
+          deliveryId: deliverySelecionado || null,
+          deliveryInfo: tipoVenda === 'delivery' ? deliveryInfo : null,
+          itens: itensPedido,
+          total,
+          formaPagamento,
+          tipoVenda,
+          status: 'finalizada',
+          criadoPor: user?.id,
+          criadoPorNome: user?.nome,
+          criadoEm: Timestamp.now(),
+        };
+
+        const vendaRef = await addDoc(collection(dbInstance, 'vendas'), venda);
+
+        // Criar itens de venda
+        for (const item of itensPedido) {
+          await addDoc(collection(dbInstance, 'itens_venda'), {
+            empresaId,
+            vendaId: vendaRef.id,
+            produtoId: item.produtoId,
+            nome: item.nome,
+            preco: item.preco,
+            quantidade: item.quantidade,
+            total: item.preco * item.quantidade,
+            tipoVenda,
+            criadoEm: Timestamp.now(),
+          });
+        }
+
+        // Criar pagamento
+        await addDoc(collection(dbInstance, 'pagamentos'), {
+          empresaId,
+          vendaId: vendaRef.id,
+          formaPagamento,
+          valor: total,
+          criadoEm: Timestamp.now(),
+        });
+
+        // Limpar pedidos temporários
+        if (tipoVenda === 'mesa' || tipoVenda === 'delivery') {
+          const deletePromises = itensPedido.map(item => 
+            deleteDoc(doc(dbInstance, 'pedidos_temp', item.id))
+          );
+          await Promise.all(deletePromises);
+        }
+
+        // Liberar mesa
+        if (tipoVenda === 'mesa' && mesaSelecionada) {
+          await atualizarMesa(mesaSelecionada, { status: 'livre' });
+        }
+
+        // Registrar no caixa (se houver)
+        if (caixaAberto) {
+          await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+            caixaId: caixaAberto.id,
+            empresaId,
+            tipo: 'venda',
+            valor: total,
+            formaPagamento,
+            vendaId: vendaRef.id,
+            descricao: `Venda - ${getTipoVendaLabel()}`,
+            usuarioId: user?.id,
+            usuarioNome: user?.nome,
+            criadoEm: Timestamp.now(),
+          });
+
+          await updateDoc(doc(dbInstance, 'caixas', caixaAberto.id), {
+            valorAtual: (caixaAberto.valorAtual || 0) + total,
+            totalVendas: (caixaAberto.totalVendas || 0) + total,
+            totalEntradas: (caixaAberto.totalEntradas || 0) + total,
+          });
+        }
+
+        // Log
+        await registrarLog({
+          empresaId: empresaId || '',
+          usuarioId: user?.id || '',
+          usuarioNome: user?.nome || '',
+          acao: 'VENDA_FINALIZADA',
+          detalhes: `Venda de ${itensPedido.length} itens - R$ ${total.toFixed(2)}`,
+          tipo: 'venda',
+        });
+
+        toast({ title: '✓ Venda finalizada com sucesso!' });
+      }
+
       setDialogPagamento(false);
       setItensPedido([]);
       setMesaSelecionada('');
       setNumeroMesaSelecionada(0);
+      
     } catch (error) {
       console.error('Erro ao finalizar venda:', error);
       toast({ variant: 'destructive', title: 'Erro ao finalizar venda' });
@@ -377,14 +622,6 @@ export default function PDVPage() {
 
   // Imprimir comanda
   const imprimirComanda = () => {
-    const conteudo = `
-      COMANDA - ${getTipoVendaLabel()}
-      ${new Date().toLocaleString('pt-BR')}
-      
-      ${itensPedido.map((item, i) => `${i + 1}. ${item.nome} x${item.quantidade}`).join('\n')}
-      
-      TOTAL: R$ ${total.toFixed(2)}
-    `;
     window.print();
   };
 
@@ -460,12 +697,12 @@ export default function PDVPage() {
         </header>
 
         {/* SELEÇÃO DE TIPO DE VENDA */}
-        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 flex gap-3 items-center shadow-sm">
-          <span className="text-sm font-bold text-gray-700 uppercase">Tipo de Venda:</span>
+        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 flex gap-3 items-center shadow-sm overflow-x-auto">
+          <span className="text-sm font-bold text-gray-700 uppercase whitespace-nowrap">Tipo de Venda:</span>
           <Button
             variant={tipoVenda === 'balcao' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'balcao' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+            className={`font-bold transition-all whitespace-nowrap ${tipoVenda === 'balcao' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
             onClick={() => trocarTipoVenda('balcao')}
           >
             <Package className="h-4 w-4 mr-2" />
@@ -474,16 +711,25 @@ export default function PDVPage() {
           <Button
             variant={tipoVenda === 'mesa' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'mesa' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+            className={`font-bold transition-all whitespace-nowrap ${tipoVenda === 'mesa' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
             onClick={() => trocarTipoVenda('mesa')}
           >
             <UtensilsCrossed className="h-4 w-4 mr-2" />
             Mesa
           </Button>
           <Button
+            variant={tipoVenda === 'comanda' ? 'default' : 'outline'}
+            size="sm"
+            className={`font-bold transition-all whitespace-nowrap ${tipoVenda === 'comanda' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+            onClick={() => trocarTipoVenda('comanda')}
+          >
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Comanda
+          </Button>
+          <Button
             variant={tipoVenda === 'delivery' ? 'default' : 'outline'}
             size="sm"
-            className={`font-bold transition-all ${tipoVenda === 'delivery' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
+            className={`font-bold transition-all whitespace-nowrap ${tipoVenda === 'delivery' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'border border-blue-300 text-blue-600 hover:bg-blue-50'}`}
             onClick={() => trocarTipoVenda('delivery')}
           >
             <Truck className="h-4 w-4 mr-2" />
@@ -523,6 +769,64 @@ export default function PDVPage() {
                     </button>
                   ))}
                 </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {/* COLUNA ESQUERDA - COMANDAS (se selecionado) */}
+          {tipoVenda === 'comanda' && (
+            <div className="w-56 bg-white rounded-lg shadow-sm border border-blue-100 flex flex-col overflow-hidden">
+              <div className="bg-blue-50 border-b border-blue-100 px-4 py-3 flex items-center justify-between">
+                <span className="text-blue-700 font-bold">COMANDAS</span>
+                <Button 
+                  size="sm" 
+                  className="h-7 bg-green-600 hover:bg-green-700"
+                  onClick={() => setDialogComanda(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <ScrollArea className="flex-1 p-3">
+                {comandas.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <ClipboardList className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Nenhuma comanda aberta</p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-3"
+                      onClick={() => setDialogComanda(true)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Nova Comanda
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {comandas.map(comanda => (
+                      <button
+                        key={comanda.id}
+                        onClick={() => selecionarComanda(comanda)}
+                        className={`w-full p-3 rounded-lg font-bold transition-all transform hover:scale-105 text-left ${
+                          comandaSelecionada?.id === comanda.id
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-purple-50 text-purple-700 hover:shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-lg">#{comanda.numero}</span>
+                          <Badge className="bg-purple-500 text-white text-xs">
+                            R$ {(comanda.total || 0).toFixed(2)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm truncate opacity-80">{comanda.nomeCliente}</p>
+                        <p className="text-xs opacity-60">
+                          {comanda.itens?.length || 0} itens
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </ScrollArea>
             </div>
           )}
@@ -626,14 +930,30 @@ export default function PDVPage() {
               </div>
               <p className="text-sm text-gray-600 font-semibold">
                 {getTipoVendaLabel()}
+                {tipoVenda === 'comanda' && comandaSelecionada && (
+                  <span className="ml-2 text-purple-600">
+                    - {comandaSelecionada.nomeCliente}
+                  </span>
+                )}
               </p>
               
-              {tipoVenda === 'delivery' && itensPedido.length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={imprimirComanda}
-                    className="w-full mt-3 border border-blue-200 text-blue-600 hover:bg-blue-50 font-bold"
+              {tipoVenda === 'comanda' && !comandaSelecionada && (
+                <Button 
+                  size="sm" 
+                  className="w-full mt-3 bg-purple-600 hover:bg-purple-700"
+                  onClick={() => setDialogComanda(true)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Criar Nova Comanda
+                </Button>
+              )}
+
+              {(tipoVenda === 'delivery' || tipoVenda === 'comanda') && itensPedido.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={imprimirComanda}
+                  className="w-full mt-3 border border-blue-200 text-blue-600 hover:bg-blue-50 font-bold"
                 >
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimir Comanda
@@ -708,7 +1028,7 @@ export default function PDVPage() {
               
               <Button
                 className="w-full h-16 text-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={itensPedido.length === 0 || processando}
+                disabled={itensPedido.length === 0 || processando || (tipoVenda === 'comanda' && !comandaSelecionada)}
                 onClick={() => setDialogPagamento(true)}
               >
                 <CreditCard className="h-6 w-6 mr-2" />
@@ -730,6 +1050,64 @@ export default function PDVPage() {
         </div>
       </div>
 
+      {/* DIALOG NOVA COMANDA */}
+      <Dialog open={dialogComanda} onOpenChange={setDialogComanda}>
+        <DialogContent className="max-w-md border border-blue-200">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-600">
+              <ClipboardList className="h-6 w-6" />
+              Nova Comanda
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Crie uma comanda para controlar os pedidos do cliente
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            <div className="space-y-2">
+              <Label className="font-bold">Nome do Cliente *</Label>
+              <Input 
+                value={novoClienteComanda}
+                onChange={(e) => setNovoClienteComanda(e.target.value)}
+                placeholder="Ex: João da Silva"
+                className="border border-blue-200 focus:border-purple-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="font-bold">Observação</Label>
+              <Textarea 
+                value={observacaoComanda}
+                onChange={(e) => setObservacaoComanda(e.target.value)}
+                placeholder="Ex: Mesa 5, Aniversário, etc."
+                rows={2}
+                className="border border-blue-200 focus:border-purple-500"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setDialogComanda(false);
+                setNovoClienteComanda('');
+                setObservacaoComanda('');
+              }}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleCriarComanda}
+              className="flex-1 bg-purple-600 hover:bg-purple-700"
+            >
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Criar Comanda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* DIALOG DELIVERY */}
       <Dialog open={dialogDelivery} onOpenChange={setDialogDelivery}>
         <DialogContent className="max-w-lg border border-blue-200">
@@ -745,18 +1123,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Nome *</Label>
-                  <Input 
-                    value={deliveryInfo.nome} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, nome: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.nome} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, nome: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Telefone *</Label>
-                  <Input 
-                    value={deliveryInfo.telefone} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, telefone: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.telefone} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, telefone: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
             </div>
@@ -764,18 +1142,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-3 gap-3">
               <div className="col-span-2 space-y-1">
                 <Label className="font-bold">Endereço *</Label>
-                  <Input 
-                    value={deliveryInfo.endereco} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, endereco: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.endereco} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, endereco: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Número *</Label>
-                  <Input 
-                    value={deliveryInfo.numero} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, numero: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.numero} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, numero: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
             </div>
@@ -783,18 +1161,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Complemento</Label>
-                  <Input 
-                    value={deliveryInfo.complemento} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, complemento: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.complemento} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, complemento: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">Bairro *</Label>
-                  <Input 
-                    value={deliveryInfo.bairro} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, bairro: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.bairro} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, bairro: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
             </div>
@@ -802,18 +1180,18 @@ export default function PDVPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="font-bold">Cidade *</Label>
-                  <Input 
-                    value={deliveryInfo.cidade} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, cidade: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.cidade} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, cidade: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="font-bold">CEP</Label>
-                  <Input 
-                    value={deliveryInfo.cep} 
-                    onChange={(e) => setDeliveryInfo({...deliveryInfo, cep: e.target.value})}
-                    className="border border-blue-200 focus:border-blue-500 rounded-lg"
+                <Input 
+                  value={deliveryInfo.cep} 
+                  onChange={(e) => setDeliveryInfo({...deliveryInfo, cep: e.target.value})}
+                  className="border border-blue-200 focus:border-blue-500 rounded-lg"
                 />
               </div>
             </div>

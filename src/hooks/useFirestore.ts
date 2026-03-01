@@ -961,3 +961,311 @@ export function useCaixa() {
     resumo,
   };
 }
+
+// Hook para gerenciar Comandas
+export function useComandas() {
+  const [comandas, setComandas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { empresaId, user } = useAuth();
+
+  const carregarDados = useCallback(() => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      if (user && !empresaId) {
+        setComandas([]);
+        setLoading(false);
+      }
+      return;
+    }
+
+    const q = query(
+      collection(dbInstance, 'comandas'),
+      where('empresaId', '==', empresaId),
+      where('status', '==', 'aberta')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        criadoEm: doc.data().criadoEm?.toDate(),
+        atualizadoEm: doc.data().atualizadoEm?.toDate(),
+      }));
+      setComandas(data.sort((a, b) => {
+        if (!a.criadoEm) return 1;
+        if (!b.criadoEm) return -1;
+        return a.criadoEm.getTime() - b.criadoEm.getTime();
+      }));
+      setLoading(false);
+    }, (error) => {
+      console.error('Erro ao carregar comandas:', error);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const unsubscribe = carregarDados();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [carregarDados]);
+
+  // Criar nova comanda
+  const criarComanda = async (nomeCliente: string, observacao?: string) => {
+    const dbInstance = db();
+    if (!empresaId || !user) throw new Error('Usuário não autenticado');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    // Gerar número da comanda
+    const numero = (comandas.length > 0 ? Math.max(...comandas.map(c => c.numero || 0)) : 0) + 1;
+
+    const comanda = {
+      empresaId,
+      numero,
+      nomeCliente: nomeCliente.toUpperCase(),
+      observacao: observacao || '',
+      status: 'aberta',
+      total: 0,
+      itens: [],
+      criadoPor: user.id,
+      criadoPorNome: user.nome,
+      criadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    };
+    
+    const docRef = await addDoc(collection(dbInstance, 'comandas'), comanda);
+    return { id: docRef.id, numero };
+  };
+
+  // Adicionar item à comanda
+  const adicionarItem = async (comandaId: string, item: {
+    produtoId: string;
+    nome: string;
+    preco: number;
+    quantidade: number;
+    observacao?: string;
+  }) => {
+    const dbInstance = db();
+    if (!user) throw new Error('Usuário não autenticado');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    const comandaRef = doc(dbInstance, 'comandas', comandaId);
+    const comandaDoc = await (await import('firebase/firestore')).getDoc(comandaRef);
+    
+    if (!comandaDoc.exists()) {
+      throw new Error('Comanda não encontrada');
+    }
+
+    const comandaData = comandaDoc.data();
+    const itens = comandaData.itens || [];
+    
+    const novoItem = {
+      id: Date.now().toString(),
+      ...item,
+      adicionadoPor: user.id,
+      adicionadoPorNome: user.nome,
+      adicionadoEm: Timestamp.now(),
+    };
+    
+    itens.push(novoItem);
+    
+    const novoTotal = itens.reduce((acc: number, i: any) => acc + (i.preco * i.quantidade), 0);
+
+    await updateDoc(comandaRef, {
+      itens,
+      total: novoTotal,
+      atualizadoEm: Timestamp.now(),
+    });
+
+    return novoItem;
+  };
+
+  // Remover item da comanda
+  const removerItem = async (comandaId: string, itemId: string) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    const comandaRef = doc(dbInstance, 'comandas', comandaId);
+    const comandaDoc = await (await import('firebase/firestore')).getDoc(comandaRef);
+    
+    if (!comandaDoc.exists()) {
+      throw new Error('Comanda não encontrada');
+    }
+
+    const comandaData = comandaDoc.data();
+    const itens = (comandaData.itens || []).filter((i: any) => i.id !== itemId);
+    const novoTotal = itens.reduce((acc: number, i: any) => acc + (i.preco * i.quantidade), 0);
+
+    await updateDoc(comandaRef, {
+      itens,
+      total: novoTotal,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  // Alterar quantidade de item
+  const alterarQuantidadeItem = async (comandaId: string, itemId: string, novaQuantidade: number) => {
+    const dbInstance = db();
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    const comandaRef = doc(dbInstance, 'comandas', comandaId);
+    const comandaDoc = await (await import('firebase/firestore')).getDoc(comandaRef);
+    
+    if (!comandaDoc.exists()) {
+      throw new Error('Comanda não encontrada');
+    }
+
+    const comandaData = comandaDoc.data();
+    let itens = comandaData.itens || [];
+    
+    if (novaQuantidade <= 0) {
+      itens = itens.filter((i: any) => i.id !== itemId);
+    } else {
+      itens = itens.map((i: any) => 
+        i.id === itemId ? { ...i, quantidade: novaQuantidade } : i
+      );
+    }
+    
+    const novoTotal = itens.reduce((acc: number, i: any) => acc + (i.preco * i.quantidade), 0);
+
+    await updateDoc(comandaRef, {
+      itens,
+      total: novoTotal,
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  // Fechar comanda
+  const fecharComanda = async (comandaId: string, formaPagamento: string) => {
+    const dbInstance = db();
+    if (!user || !empresaId) throw new Error('Usuário não autenticado');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    const comandaRef = doc(dbInstance, 'comandas', comandaId);
+    const comandaDoc = await (await import('firebase/firestore')).getDoc(comandaRef);
+    
+    if (!comandaDoc.exists()) {
+      throw new Error('Comanda não encontrada');
+    }
+
+    const comandaData = comandaDoc.data();
+
+    // Criar venda
+    const venda = {
+      empresaId,
+      comandaId,
+      comandaNumero: comandaData.numero,
+      nomeCliente: comandaData.nomeCliente,
+      itens: comandaData.itens,
+      total: comandaData.total,
+      formaPagamento,
+      tipoVenda: 'comanda',
+      status: 'finalizada',
+      criadoPor: user.id,
+      criadoPorNome: user.nome,
+      criadoEm: Timestamp.now(),
+    };
+
+    const vendaRef = await addDoc(collection(dbInstance, 'vendas'), venda);
+
+    // Criar itens de venda para relatórios
+    for (const item of comandaData.itens) {
+      await addDoc(collection(dbInstance, 'itens_venda'), {
+        empresaId,
+        vendaId: vendaRef.id,
+        produtoId: item.produtoId,
+        nome: item.nome,
+        preco: item.preco,
+        quantidade: item.quantidade,
+        total: item.preco * item.quantidade,
+        tipoVenda: 'comanda',
+        criadoEm: Timestamp.now(),
+      });
+    }
+
+    // Criar pagamento
+    await addDoc(collection(dbInstance, 'pagamentos'), {
+      empresaId,
+      vendaId: vendaRef.id,
+      formaPagamento,
+      valor: comandaData.total,
+      criadoEm: Timestamp.now(),
+    });
+
+    // Atualizar comanda
+    await updateDoc(comandaRef, {
+      status: 'fechada',
+      vendaId: vendaRef.id,
+      formaPagamento,
+      fechadoPor: user.id,
+      fechadoPorNome: user.nome,
+      fechadoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    });
+
+    // Registrar no caixa (se houver caixa aberto)
+    const qCaixa = query(
+      collection(dbInstance, 'caixas'),
+      where('empresaId', '==', empresaId),
+      where('status', '==', 'aberto')
+    );
+    
+    const caixaSnapshot = await (await import('firebase/firestore')).getDocs(qCaixa);
+    
+    if (!caixaSnapshot.empty) {
+      const caixaId = caixaSnapshot.docs[0].id;
+      
+      await addDoc(collection(dbInstance, 'movimentacoes_caixa'), {
+        caixaId,
+        empresaId,
+        tipo: 'venda',
+        valor: comandaData.total,
+        formaPagamento,
+        vendaId: vendaRef.id,
+        descricao: `Comanda #${comandaData.numero} - ${comandaData.nomeCliente}`,
+        usuarioId: user.id,
+        usuarioNome: user.nome,
+        criadoEm: Timestamp.now(),
+      });
+
+      const caixaAtual = caixaSnapshot.docs[0].data();
+      await updateDoc(doc(dbInstance, 'caixas', caixaId), {
+        valorAtual: (caixaAtual.valorAtual || 0) + comandaData.total,
+        totalVendas: (caixaAtual.totalVendas || 0) + comandaData.total,
+        totalEntradas: (caixaAtual.totalEntradas || 0) + comandaData.total,
+      });
+    }
+
+    return vendaRef.id;
+  };
+
+  // Cancelar comanda
+  const cancelarComanda = async (comandaId: string) => {
+    const dbInstance = db();
+    if (!user) throw new Error('Usuário não autenticado');
+    if (!dbInstance) throw new Error('Firebase não inicializado');
+
+    await updateDoc(doc(dbInstance, 'comandas', comandaId), {
+      status: 'cancelada',
+      canceladoPor: user.id,
+      canceladoPorNome: user.nome,
+      canceladoEm: Timestamp.now(),
+      atualizadoEm: Timestamp.now(),
+    });
+  };
+
+  return {
+    comandas,
+    loading,
+    criarComanda,
+    adicionarItem,
+    removerItem,
+    alterarQuantidadeItem,
+    fecharComanda,
+    cancelarComanda,
+  };
+}
