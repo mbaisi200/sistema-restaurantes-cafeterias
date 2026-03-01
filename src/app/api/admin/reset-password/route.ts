@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminAuth } from '@/lib/firebase-admin';
+import { adminAuth, initError } from '@/lib/firebase-admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // Verificar se o Firebase Admin está inicializado
     if (!adminAuth) {
       return NextResponse.json(
-        { error: 'Firebase Admin não configurado. Configure a variável FIREBASE_SERVICE_ACCOUNT_KEY no ambiente.' },
+        { error: `Firebase Admin não configurado: ${initError || 'Erro desconhecido'}` },
         { status: 500 }
       );
     }
@@ -41,10 +41,17 @@ export async function POST(request: NextRequest) {
 
   } catch (error: unknown) {
     console.error('Erro ao redefinir senha:', error);
-    
+
     let errorMessage = 'Erro ao redefinir senha';
     if (error instanceof Error) {
-      errorMessage = error.message;
+      // Traduzir erros comuns
+      if (error.message.includes('auth/user-not-found')) {
+        errorMessage = 'Usuário não encontrado no Firebase Authentication';
+      } else if (error.message.includes('auth/invalid-password')) {
+        errorMessage = 'Senha inválida. Deve ter pelo menos 6 caracteres';
+      } else {
+        errorMessage = error.message;
+      }
     }
 
     return NextResponse.json(

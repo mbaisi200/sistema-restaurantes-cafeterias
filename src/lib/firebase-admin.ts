@@ -1,29 +1,52 @@
 import admin from 'firebase-admin';
 
-// Verificar se já foi inicializado
-if (!admin.apps.length) {
-  // Tentar inicializar com as credenciais do ambiente
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-    : undefined;
+let adminAuth: admin.auth.Auth | null = null;
+let adminDb: admin.firestore.Firestore | null = null;
+let initialized = false;
+let initError: string | null = null;
 
-  if (serviceAccount) {
+function initializeAdmin() {
+  if (initialized) return;
+  initialized = true;
+
+  try {
+    // Se já estiver inicializado, usar a instância existente
+    if (admin.apps.length > 0) {
+      adminAuth = admin.auth();
+      adminDb = admin.firestore();
+      return;
+    }
+
+    // Tentar obter a service account do ambiente
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+
+    if (!serviceAccountKey) {
+      initError = 'FIREBASE_SERVICE_ACCOUNT_KEY não configurada';
+      console.warn('Firebase Admin: Configure a variável de ambiente FIREBASE_SERVICE_ACCOUNT_KEY');
+      return;
+    }
+
+    // Parsear a service account
+    const serviceAccount = JSON.parse(serviceAccountKey);
+
+    // Inicializar o Firebase Admin
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-  } else {
-    // Se não tiver service account, usar as credenciais padrão do Google Cloud
-    // Isso funciona em ambientes como Google Cloud Run, Cloud Functions, etc.
-    try {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-    } catch (error) {
-      console.warn('Firebase Admin não inicializado: credenciais não configuradas');
-    }
+
+    adminAuth = admin.auth();
+    adminDb = admin.firestore();
+
+    console.log('Firebase Admin inicializado com sucesso');
+
+  } catch (error) {
+    initError = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error('Erro ao inicializar Firebase Admin:', error);
   }
 }
 
-export const adminAuth = admin.apps.length > 0 ? admin.auth() : null;
-export const adminDb = admin.apps.length > 0 ? admin.firestore() : null;
+// Inicializar na primeira importação
+initializeAdmin();
+
+export { adminAuth, adminDb, initError };
 export default admin;
