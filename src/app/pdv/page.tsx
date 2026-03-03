@@ -1064,13 +1064,13 @@ export default function PDVPage() {
           </div>
 
           {/* COLUNA DIREITA - CARRINHO */}
-          <div className="w-96 bg-white rounded-lg shadow-sm border border-blue-100 flex flex-col overflow-hidden h-full">
+          <div className="w-80 lg:w-96 bg-white rounded-lg shadow-sm border border-blue-100 flex flex-col overflow-hidden h-full">
             
             {/* HEADER CARRINHO */}
-            <div className="bg-blue-50 border-b border-blue-100 px-4 py-4 shrink-0">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
-                  <ShoppingCart className="h-6 w-6 text-blue-600" />
+            <div className="bg-blue-50 border-b border-blue-100 px-3 py-3 shrink-0">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold flex items-center gap-2 text-gray-800">
+                  <ShoppingCart className="h-5 w-5 text-blue-600" />
                   PEDIDO
                 </h2>
                 {itensPedido.length > 0 && (
@@ -1113,52 +1113,48 @@ export default function PDVPage() {
             </div>
 
             {/* ITENS DO CARRINHO */}
-            <ScrollArea className="flex-1 p-4 min-h-0 h-0">
+            <ScrollArea className="flex-1 p-3 min-h-0 h-0">
               {itensPedido.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                  <ShoppingCart className="h-16 w-16 mb-3 opacity-20" />
-                  <p className="font-bold text-gray-600">Carrinho vazio</p>
-                  <p className="text-xs text-gray-500 mt-1">Clique nos produtos para lançar</p>
+                  <ShoppingCart className="h-12 w-12 mb-2 opacity-20" />
+                  <p className="font-bold text-gray-600 text-sm">Carrinho vazio</p>
+                  <p className="text-xs text-gray-500 mt-1">Clique nos produtos</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {(itensPedido || []).map((item, index) => (
-                    <div key={item.id} className="bg-blue-50 rounded-lg p-3 border border-blue-100 hover:border-blue-300 transition-all shadow-sm hover:shadow-md">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold bg-blue-600 text-white px-2 py-1 rounded-full">#{index + 1}</span>
-                            <p className="font-bold text-gray-800">{item.nome}</p>
+                    <div key={item.id} className="bg-blue-50 rounded-lg p-2 border border-blue-100 hover:border-blue-300 transition-all shadow-sm">
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold bg-blue-600 text-white px-1.5 py-0.5 rounded-full shrink-0">#{index + 1}</span>
+                            <p className="font-bold text-gray-800 text-sm truncate">{item.nome}</p>
                           </div>
-                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                            <User className="h-3 w-3" />
-                            {item.atendenteNome}
-                          </p>
                         </div>
                         <button
-                          className="text-gray-500 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-all"
+                          className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-1 rounded transition-all shrink-0"
                           onClick={() => removerItem(item.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <button
-                            className="w-8 h-8 rounded-lg bg-red-600 hover:bg-red-700 text-white flex items-center justify-center font-bold transition-all shadow-sm"
+                            className="w-7 h-7 rounded-lg bg-red-600 hover:bg-red-700 text-white flex items-center justify-center font-bold transition-all shadow-sm"
                             onClick={() => alterarQtd(item.id, -1, item.quantidade)}
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3.5 w-3.5" />
                           </button>
-                          <span className="w-8 text-center font-bold text-lg text-gray-800">{item.quantidade}</span>
+                          <span className="w-7 text-center font-bold text-base text-gray-800">{item.quantidade}</span>
                           <button
-                            className="w-8 h-8 rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center justify-center font-bold transition-all shadow-sm"
+                            className="w-7 h-7 rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center justify-center font-bold transition-all shadow-sm"
                             onClick={() => alterarQtd(item.id, 1, item.quantidade)}
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3.5 w-3.5" />
                           </button>
                         </div>
-                        <p className="font-bold text-lg text-green-600">
+                        <p className="font-bold text-base text-green-600">
                           R$ {(item.preco * item.quantidade).toFixed(2)}
                         </p>
                       </div>
@@ -1169,30 +1165,31 @@ export default function PDVPage() {
             </ScrollArea>
 
             {/* TOTAL E FINALIZAR */}
-            <div className="p-4 border-t border-blue-100 space-y-3 bg-white shrink-0">
+            <div className="p-3 border-t border-blue-100 space-y-2 bg-white shrink-0">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-bold text-gray-700">TOTAL:</span>
-                <span className="text-3xl font-extrabold text-green-600">
+                <span className="text-base font-bold text-gray-700">TOTAL:</span>
+                <span className="text-2xl font-extrabold text-green-600">
                   R$ {total.toFixed(2)}
                 </span>
               </div>
               
               <Button
-                className="w-full h-16 text-lg font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-11 text-base font-bold bg-green-600 hover:bg-green-700 text-white shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={itensPedido.length === 0 || processando || (tipoVenda === 'comanda' && !comandaSelecionada)}
                 onClick={() => setDialogPerguntaCPF(true)}
               >
-                <CreditCard className="h-6 w-6 mr-2" />
+                <CreditCard className="h-5 w-5 mr-2" />
                 {processando ? 'Processando...' : 'FINALIZAR VENDA'}
               </Button>
 
               {itensPedido.length > 0 && (
                 <Button
                   variant="outline"
-                  className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-bold"
+                  size="sm"
+                  className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-bold h-9"
                   onClick={limparPedido}
                 >
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
                   Limpar Carrinho
                 </Button>
               )}
