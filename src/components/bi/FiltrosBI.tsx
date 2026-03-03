@@ -23,6 +23,7 @@ interface FiltrosBIProps {
     categorias: { valor: string; label: string }[];
     formasPagamento: { valor: string; label: string }[];
     tiposVenda: { valor: string; label: string }[];
+    produtos: { valor: string; label: string }[];
   };
   onAtualizarFiltros: (filtros: Partial<FiltrosBI>) => void;
   onResetarFiltros: () => void;
@@ -55,7 +56,7 @@ function MultiSelect({ titulo, opcoes, valores, onChange }: { titulo: string; op
 }
 
 function FiltrosContent({ filtros, opcoesFiltros, onAtualizarFiltros, onResetarFiltros }: { filtros: FiltrosBI; opcoesFiltros: FiltrosBIProps['opcoesFiltros']; onAtualizarFiltros: FiltrosBIProps['onAtualizarFiltros']; onResetarFiltros: FiltrosBIProps['onResetarFiltros'] }) {
-  const filtrosAtivos = [...filtros.categorias, ...filtros.formasPagamento, ...filtros.tiposVenda].length;
+  const filtrosAtivos = [...filtros.categorias, ...filtros.formasPagamento, ...filtros.tiposVenda, ...filtros.produtos].length;
 
   return (
     <div className="space-y-4">
@@ -95,10 +96,11 @@ function FiltrosContent({ filtros, opcoesFiltros, onAtualizarFiltros, onResetarF
         )}
       </div>
       <Separator />
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MultiSelect titulo="Categorias" opcoes={opcoesFiltros.categorias} valores={filtros.categorias} onChange={(valores) => onAtualizarFiltros({ categorias: valores })} />
         <MultiSelect titulo="Forma de Pagamento" opcoes={opcoesFiltros.formasPagamento} valores={filtros.formasPagamento} onChange={(valores) => onAtualizarFiltros({ formasPagamento: valores })} />
         <MultiSelect titulo="Tipo de Venda" opcoes={opcoesFiltros.tiposVenda} valores={filtros.tiposVenda} onChange={(valores) => onAtualizarFiltros({ tiposVenda: valores })} />
+        <MultiSelect titulo="Produtos" opcoes={opcoesFiltros.produtos} valores={filtros.produtos} onChange={(valores) => onAtualizarFiltros({ produtos: valores })} />
       </div>
       <Separator />
       <div className="flex items-center justify-between gap-4">
@@ -115,7 +117,7 @@ function FiltrosContent({ filtros, opcoesFiltros, onAtualizarFiltros, onResetarF
 
 export function FiltrosBI({ filtros, periodoFormatado, opcoesFiltros, onAtualizarFiltros, onResetarFiltros }: FiltrosBIProps) {
   const isMobile = useIsMobile();
-  const filtrosAtivos = [...filtros.categorias, ...filtros.formasPagamento, ...filtros.tiposVenda].length;
+  const filtrosAtivos = [...filtros.categorias, ...filtros.formasPagamento, ...filtros.tiposVenda, ...filtros.produtos].length;
 
   if (isMobile) {
     return (

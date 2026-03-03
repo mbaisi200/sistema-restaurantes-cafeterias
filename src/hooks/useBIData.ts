@@ -51,6 +51,7 @@ export function useBIData(vendas: Venda[], produtos: Produto[], categorias: Cate
     categorias: [],
     formasPagamento: [],
     tiposVenda: [],
+    produtos: [],
     status: [],
     canais: [],
   });
@@ -100,6 +101,11 @@ export function useBIData(vendas: Venda[], produtos: Produto[], categorias: Cate
       if (filtros.tiposVenda.length > 0 && !filtros.tiposVenda.includes(venda.tipo || venda.tipoVenda || '')) return false;
       if (filtros.status.length > 0 && !filtros.status.includes(venda.status)) return false;
       if (filtros.canais && filtros.canais.length > 0 && !filtros.canais.includes(venda.canal || '')) return false;
+      // Filtro por produto
+      if (filtros.produtos.length > 0) {
+        const temProdutoFiltrado = venda.itens?.some(item => filtros.produtos.includes(item.produtoId));
+        if (!temProdutoFiltrado) return false;
+      }
       return true;
     });
   }, [vendas, filtros, obterIntervaloDatas]);
@@ -441,7 +447,7 @@ export function useBIData(vendas: Venda[], produtos: Produto[], categorias: Cate
 
   // Resetar filtros
   const resetarFiltros = useCallback(() => {
-    setFiltros({ periodo: 'mes', categorias: [], formasPagamento: [], tiposVenda: [], status: [], canais: [] });
+    setFiltros({ periodo: 'mes', categorias: [], formasPagamento: [], tiposVenda: [], produtos: [], status: [], canais: [] });
   }, []);
 
   // Opções de filtros
@@ -461,6 +467,7 @@ export function useBIData(vendas: Venda[], produtos: Produto[], categorias: Cate
       { valor: 'comanda', label: 'Comanda' },
       { valor: 'delivery', label: 'Delivery' }
     ],
+    produtos: produtos.map(p => ({ valor: p.id, label: p.nome })),
     canais: [
       { valor: 'balcao', label: 'Balcão' },
       { valor: 'mesa', label: 'Mesa' },
@@ -470,7 +477,7 @@ export function useBIData(vendas: Venda[], produtos: Produto[], categorias: Cate
       { valor: 'uber_eats', label: 'Uber Eats' },
       { valor: 'whatsapp', label: 'WhatsApp' }
     ]
-  }), [categorias]);
+  }), [categorias, produtos]);
 
   return {
     kpis, 

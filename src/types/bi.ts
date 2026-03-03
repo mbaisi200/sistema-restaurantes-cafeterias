@@ -7,6 +7,7 @@ export interface FiltrosBI {
   categorias: string[];
   formasPagamento: string[];
   tiposVenda: string[];
+  produtos: string[];
   status: string[];
   canais?: string[];
 }
