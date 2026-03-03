@@ -1306,3 +1306,128 @@ export function useComandas() {
     cancelarComanda,
   };
 }
+
+// Interface para configurações do cupom
+export interface ConfiguracoesCupom {
+  larguraPapel: number; // em milímetros
+  tamanhoFonte: number; // em pontos (pt)
+  intensidadeImpressao: 'normal' | 'escura' | 'muito-escura';
+  margemSuperior: number; // em milímetros
+  margemInferior: number; // em milímetros
+  espacamentoLinhas: number; // em pontos
+  nomeEmpresa: string;
+  cnpjEmpresa: string;
+  enderecoEmpresa: string;
+  telefoneEmpresa: string;
+  mensagemRodape: string;
+}
+
+// Configurações padrão do cupom
+export const configuracoesCupomPadrao: ConfiguracoesCupom = {
+  larguraPapel: 80,
+  tamanhoFonte: 12,
+  intensidadeImpressao: 'escura',
+  margemSuperior: 2,
+  margemInferior: 2,
+  espacamentoLinhas: 1.4,
+  nomeEmpresa: '',
+  cnpjEmpresa: '',
+  enderecoEmpresa: '',
+  telefoneEmpresa: '',
+  mensagemRodape: 'Obrigado pela preferência!\nVolte sempre!',
+};
+
+// Hook para gerenciar configurações do cupom fiscal
+export function useConfiguracoesCupom() {
+  const [configuracoes, setConfiguracoes] = useState<ConfiguracoesCupom>(configuracoesCupomPadrao);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { empresaId, user } = useAuth();
+
+  // Carregar configurações
+  const carregarConfiguracoes = useCallback(async () => {
+    const dbInstance = db();
+    
+    if (!user || !empresaId || !dbInstance) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Buscar documento de configurações da empresa
+      const configRef = doc(dbInstance, 'configuracoes_cupom', empresaId);
+      const configDoc = await getDocs(query(
+        collection(dbInstance, 'configuracoes_cupom'),
+        where('empresaId', '==', empresaId)
+      ));
+
+      if (!configDoc.empty) {
+        const data = configDoc.docs[0].data();
+        setConfiguracoes({
+          ...configuracoesCupomPadrao,
+          ...data,
+        });
+      } else {
+        // Se não existir, usar padrão
+        setConfiguracoes(configuracoesCupomPadrao);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações do cupom:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [empresaId, user]);
+
+  useEffect(() => {
+    carregarConfiguracoes();
+  }, [carregarConfiguracoes]);
+
+  // Salvar configurações
+  const salvarConfiguracoes = async (novasConfiguracoes: Partial<ConfiguracoesCupom>) => {
+    const dbInstance = db();
+    if (!empresaId || !dbInstance) throw new Error('Empresa não definida');
+
+    setSaving(true);
+    try {
+      const configCompletas = { ...configuracoes, ...novasConfiguracoes, empresaId };
+      
+      // Verificar se já existe configuração
+      const configQuery = query(
+        collection(dbInstance, 'configuracoes_cupom'),
+        where('empresaId', '==', empresaId)
+      );
+      const configSnapshot = await getDocs(configQuery);
+
+      if (configSnapshot.empty) {
+        // Criar nova configuração
+        await addDoc(collection(dbInstance, 'configuracoes_cupom'), {
+          ...configCompletas,
+          criadoEm: Timestamp.now(),
+          atualizadoEm: Timestamp.now(),
+        });
+      } else {
+        // Atualizar configuração existente
+        await updateDoc(doc(dbInstance, 'configuracoes_cupom', configSnapshot.docs[0].id), {
+          ...configCompletas,
+          atualizadoEm: Timestamp.now(),
+        });
+      }
+
+      setConfiguracoes(configCompletas);
+      return true;
+    } catch (error) {
+      console.error('Erro ao salvar configurações do cupom:', error);
+      throw error;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return {
+    configuracoes,
+    loading,
+    saving,
+    salvarConfiguracoes,
+    recarregar: carregarConfiguracoes,
+  };
+}

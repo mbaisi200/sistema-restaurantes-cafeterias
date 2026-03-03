@@ -18,12 +18,14 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Printer, FileText, User, Settings, CreditCard, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useConfiguracoesCupom, ConfiguracoesCupom, configuracoesCupomPadrao } from '@/hooks/useFirestore';
 
 export interface DadosCupomFiscal {
   cpfCliente: string;
   nomeCliente: string;
   imprimirCupom: boolean;
   tamanhoCupom: '58mm' | '80mm';
+  configuracoes?: ConfiguracoesCupom;
 }
 
 interface CupomFiscalModalProps {
@@ -61,11 +63,19 @@ export function CupomFiscalModal({
   nomePrePreenchido = '',
 }: CupomFiscalModalProps) {
   const { toast } = useToast();
+  const { configuracoes } = useConfiguracoesCupom();
   const [cpfCliente, setCpfCliente] = useState(cpfPrePreenchido);
   const [nomeCliente, setNomeCliente] = useState(nomePrePreenchido);
   const [imprimirCupom, setImprimirCupom] = useState(true);
   const [tamanhoCupom, setTamanhoCupom] = useState<'58mm' | '80mm'>('80mm');
   const [mostrarConfiguracoes, setMostrarConfiguracoes] = useState(false);
+
+  // Atualizar tamanho do cupom baseado nas configurações salvas
+  useEffect(() => {
+    if (configuracoes) {
+      setTamanhoCupom(configuracoes.larguraPapel === 58 ? '58mm' : '80mm');
+    }
+  }, [configuracoes]);
 
   // Resetar valores quando o modal abrir
   useEffect(() => {
@@ -153,6 +163,7 @@ export function CupomFiscalModal({
       nomeCliente: nomeCliente.trim(),
       imprimirCupom,
       tamanhoCupom,
+      configuracoes: configuracoes || configuracoesCupomPadrao,
     }, formaPagamento);
   };
 
@@ -336,12 +347,13 @@ export function imprimirCupomFiscal(
     tamanhoCupom: '58mm' | '80mm';
     codigoVenda?: string;
     pagamentosMultiplos?: Array<{ forma: string; valor: number }>;
+    configuracoes?: ConfiguracoesCupom;
   }
 ) {
   const {
-    nomeEmpresa,
-    cnpjEmpresa,
-    enderecoEmpresa,
+    nomeEmpresa: nomeEmpresaParam,
+    cnpjEmpresa: cnpjEmpresaParam,
+    enderecoEmpresa: enderecoEmpresaParam,
     cpfCliente,
     nomeCliente,
     itens,
@@ -350,7 +362,31 @@ export function imprimirCupomFiscal(
     tamanhoCupom,
     codigoVenda,
     pagamentosMultiplos,
+    configuracoes,
   } = dados;
+
+  // Usar configurações salvas ou padrão
+  const config = configuracoes || configuracoesCupomPadrao;
+  
+  // Usar dados da empresa das configurações se disponíveis
+  const nomeEmpresa = config.nomeEmpresa || nomeEmpresaParam;
+  const cnpjEmpresa = config.cnpjEmpresa || cnpjEmpresaParam;
+  const enderecoEmpresa = config.enderecoEmpresa || enderecoEmpresaParam;
+  
+  // Determinar largura do papel
+  const larguraMm = config.larguraPapel || (tamanhoCupom === '58mm' ? 58 : 80);
+  const tamanhoPapel = larguraMm <= 58 ? '58mm' : larguraMm <= 80 ? '80mm' : `${larguraMm}mm`;
+  
+  // Calcular largura em caracteres baseado no tamanho do papel
+  const largura = larguraMm <= 58 ? 32 : larguraMm <= 80 ? 48 : Math.floor(larguraMm * 0.6);
+  
+  // Configurações de fonte
+  const tamanhoFonte = config.tamanhoFonte || 12;
+  const intensidade = config.intensidadeImpressao || 'escura';
+  const espacamentoLinhas = config.espacamentoLinhas || 1.4;
+  const margemSuperior = config.margemSuperior || 2;
+  const margemInferior = config.margemInferior || 2;
+  const mensagemRodape = config.mensagemRodape || 'Obrigado pela preferência!\nVolte sempre!';
 
   const formaPagamentoLabel: Record<string, string> = {
     dinheiro: 'Dinheiro',
@@ -359,7 +395,6 @@ export function imprimirCupomFiscal(
     pix: 'PIX',
   };
 
-  const largura = tamanhoCupom === '58mm' ? 32 : 48;
   const separador = '='.repeat(largura);
   const traco = '-'.repeat(largura);
 
@@ -384,9 +419,10 @@ export function imprimirCupomFiscal(
   let cupom = '';
 
   cupom += '\n';
-  cupom += centralizar(nomeEmpresa) + '\n';
+  cupom += centralizar(nomeEmpresa || 'EMPRESA') + '\n';
   if (cnpjEmpresa) cupom += centralizar(`CNPJ: ${cnpjEmpresa}`) + '\n';
   if (enderecoEmpresa) cupom += centralizar(enderecoEmpresa) + '\n';
+  if (config.telefoneEmpresa) cupom += centralizar(`Tel: ${config.telefoneEmpresa}`) + '\n';
   cupom += separador + '\n';
   cupom += centralizar('CUPOM FISCAL') + '\n';
   cupom += separador + '\n';
@@ -440,10 +476,14 @@ export function imprimirCupomFiscal(
   }
   cupom += separador + '\n';
 
-  // Rodapé
-  cupom += centralizar('Obrigado pela preferência!') + '\n';
-  cupom += centralizar('Volte sempre!') + '\n';
+  // Rodapé com mensagem personalizada
+  mensagemRodape.split('\n').forEach((linha) => {
+    cupom += centralizar(linha) + '\n';
+  });
   cupom += '\n\n\n';
+
+  // Determinar peso da fonte baseado na intensidade
+  const fontWeight = intensidade === 'normal' ? 400 : intensidade === 'escura' ? 600 : 700;
 
   // Criar janela de impressão
   const printWindow = window.open('', '_blank', 'width=400,height=600');
@@ -459,17 +499,20 @@ export function imprimirCupomFiscal(
       <title>Cupom Fiscal</title>
       <style>
         @page {
-          size: ${tamanhoCupom === '58mm' ? '58mm' : '80mm'} auto;
-          margin: 0;
+          size: ${tamanhoPapel} auto;
+          margin: ${margemSuperior}mm 0 ${margemInferior}mm 0;
         }
         body {
           font-family: 'Courier New', monospace;
-          font-size: ${tamanhoCupom === '58mm' ? '10px' : '12px'};
-          line-height: 1.4;
+          font-size: ${tamanhoFonte}px;
+          font-weight: ${fontWeight};
+          line-height: ${espacamentoLinhas};
           margin: 0;
-          padding: 5px;
+          padding: ${margemSuperior}mm;
           white-space: pre-wrap;
           word-wrap: break-word;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         @media print {
           body {

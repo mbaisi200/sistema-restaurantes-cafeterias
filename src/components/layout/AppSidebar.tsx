@@ -36,6 +36,7 @@ import {
   Wallet,
   Plug,
   Truck,
+  Printer,
 } from 'lucide-react';
 
 const masterMenuItems = [
@@ -59,6 +60,7 @@ const adminMenuItems = [
   { title: 'Financeiro', url: '/admin/financeiro', icon: DollarSign },
   { title: 'Relatórios', url: '/admin/relatorios', icon: BarChart3 },
   { title: 'Integrações', url: '/admin/integracoes', icon: Plug },
+  { title: 'Cupom Fiscal', url: '/admin/configuracoes-cupom', icon: Printer },
 ];
 
 const funcionarioMenuItems = [
