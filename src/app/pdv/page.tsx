@@ -1064,10 +1064,10 @@ export default function PDVPage() {
           </div>
 
           {/* COLUNA DIREITA - CARRINHO */}
-          <div className="w-96 bg-white rounded-lg shadow-sm border border-blue-100 flex flex-col overflow-hidden">
+          <div className="w-96 bg-white rounded-lg shadow-sm border border-blue-100 flex flex-col overflow-hidden h-full">
             
             {/* HEADER CARRINHO */}
-            <div className="bg-blue-50 border-b border-blue-100 px-4 py-4">
+            <div className="bg-blue-50 border-b border-blue-100 px-4 py-4 shrink-0">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xl font-bold flex items-center gap-2 text-gray-800">
                   <ShoppingCart className="h-6 w-6 text-blue-600" />
@@ -1113,7 +1113,7 @@ export default function PDVPage() {
             </div>
 
             {/* ITENS DO CARRINHO */}
-            <ScrollArea className="flex-1 p-4">
+            <ScrollArea className="flex-1 p-4 min-h-0 h-0">
               {itensPedido.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400">
                   <ShoppingCart className="h-16 w-16 mb-3 opacity-20" />
@@ -1169,7 +1169,7 @@ export default function PDVPage() {
             </ScrollArea>
 
             {/* TOTAL E FINALIZAR */}
-            <div className="p-4 border-t border-blue-100 space-y-3 bg-white">
+            <div className="p-4 border-t border-blue-100 space-y-3 bg-white shrink-0">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-bold text-gray-700">TOTAL:</span>
                 <span className="text-3xl font-extrabold text-green-600">
